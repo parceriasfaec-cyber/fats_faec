@@ -25,8 +25,8 @@
       <label>Foto do Produtor</label>
       {% if produtor and produtor['foto_produtor'] %}
       <div class="foto-preview">
-        <a href="{{ url_for('foto', nome=produtor['foto_produtor']) }}" target="_blank">
-          <img src="{{ url_for('foto', nome=produtor['foto_produtor']) }}" alt="Foto do produtor">
+        <a href="{{ foto_url(produtor['foto_produtor']) }}" target="_blank">
+          <img src="{{ foto_url(produtor['foto_produtor']) }}" alt="Foto do produtor">
         </a>
         <span class="foto-hint">Clique na foto para ver em tamanho maior. Escolha um arquivo abaixo para substituir.</span>
       </div>

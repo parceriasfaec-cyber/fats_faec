@@ -1,6 +1,8 @@
 import re
 from io import BytesIO
 from pathlib import Path
+
+import requests
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -134,12 +136,17 @@ def generate_pdf(row) -> BytesIO:
     foto_nome = _v(row, "foto_produtor")
     foto_imagem = None
     if foto_nome and foto_nome != "-":
-        caminho_foto = PASTA_FOTOS / foto_nome
-        if caminho_foto.exists():
-            try:
-                foto_imagem = Image(str(caminho_foto), width=2.6 * cm, height=2.6 * cm)
-            except Exception:
-                foto_imagem = None
+        try:
+            if foto_nome.startswith("http://") or foto_nome.startswith("https://"):
+                resp = requests.get(foto_nome, timeout=15)
+                resp.raise_for_status()
+                foto_imagem = Image(BytesIO(resp.content), width=2.6 * cm, height=2.6 * cm)
+            else:
+                caminho_foto = PASTA_FOTOS / foto_nome
+                if caminho_foto.exists():
+                    foto_imagem = Image(str(caminho_foto), width=2.6 * cm, height=2.6 * cm)
+        except Exception:
+            foto_imagem = None
 
     if foto_imagem:
         cabecalho = Table(

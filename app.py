@@ -13,6 +13,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 from database import get_connection, init_db, _base_dir
 from pdf_generator import generate_pdf
+from supabase_storage import enviar_foto
 
 
 # Pasta onde as fotos dos produtores ficam salvas (ao lado do banco de
@@ -103,13 +104,8 @@ def _exibir_data(valor: str) -> str:
 
 
 def _salvar_foto(arquivo) -> str:
-    """Salva o arquivo de foto enviado e devolve o nome gerado para ele."""
-    ext = Path(arquivo.filename or "").suffix.lower()
-    if ext not in EXTENSOES_PERMITIDAS:
-        ext = ".jpg"
-    nome = f"{uuid.uuid4().hex}{ext}"
-    arquivo.save(UPLOAD_DIR / nome)
-    return nome
+    """Envia a foto para o Supabase Storage e devolve a URL publica dela."""
+    return enviar_foto(arquivo)
 
 
 def _foto_atual(pid) -> str:
@@ -147,6 +143,21 @@ app.jinja_env.filters["mascara_telefone"] = _formatar_telefone
 @app.route("/fotos/<path:nome>")
 def foto(nome):
     return send_from_directory(str(UPLOAD_DIR), nome)
+
+
+@app.context_processor
+def _injetar_helpers():
+    def foto_url(nome):
+        """Resolve a URL da foto: se ja for uma URL do Supabase Storage
+        (fotos novas), usa direto; se for so um nome de arquivo (fotos
+        antigas, salvas localmente antes da migracao), busca na rota
+        local /fotos/<nome>."""
+        if not nome:
+            return ""
+        if nome.startswith("http://") or nome.startswith("https://"):
+            return nome
+        return url_for("foto", nome=nome)
+    return dict(foto_url=foto_url)
 
 # Todos os campos do formulario, na ordem em que aparecem na ficha
 FIELDS = [

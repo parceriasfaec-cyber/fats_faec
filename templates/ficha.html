@@ -17,8 +17,8 @@
 
   <div style="display:flex; align-items:center; gap:16px; margin-top:10px;">
     {% if produtor['foto_produtor'] %}
-    <a href="{{ url_for('foto', nome=produtor['foto_produtor']) }}" target="_blank">
-      <img class="foto-ficha" src="{{ url_for('foto', nome=produtor['foto_produtor']) }}" alt="Foto de {{ produtor['nome_produtor'] }}">
+    <a href="{{ foto_url(produtor['foto_produtor']) }}" target="_blank">
+      <img class="foto-ficha" src="{{ foto_url(produtor['foto_produtor']) }}" alt="Foto de {{ produtor['nome_produtor'] }}">
     </a>
     {% endif %}
     <div>

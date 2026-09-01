@@ -31,8 +31,8 @@
       <tr>
         <td class="nowrap">
           {% if p['foto_produtor'] %}
-          <a href="{{ url_for('foto', nome=p['foto_produtor']) }}" target="_blank">
-            <img class="foto-thumb" src="{{ url_for('foto', nome=p['foto_produtor']) }}" alt="Foto de {{ p['nome_produtor'] }}">
+          <a href="{{ foto_url(p['foto_produtor']) }}" target="_blank">
+            <img class="foto-thumb" src="{{ foto_url(p['foto_produtor']) }}" alt="Foto de {{ p['nome_produtor'] }}">
           </a>
           {% else %}
           <span class="foto-thumb-placeholder">-</span>
