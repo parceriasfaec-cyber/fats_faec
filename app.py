@@ -17,8 +17,12 @@ from pdf_generator import generate_pdf
 
 # Pasta onde as fotos dos produtores ficam salvas (ao lado do banco de
 # dados, para nao se perder quando o programa roda como .exe)
-UPLOAD_DIR = _base_dir() / "fotos"
-UPLOAD_DIR.mkdir(exist_ok=True)
+# Pasta onde as fotos dos produtores ficam salvas. Em producao (Render),
+# aponte a variavel de ambiente FOTOS_DIR para o disco persistente
+# (ex: /var/data/fotos). Localmente, sem essa variavel, continua usando a
+# pasta "fotos" do lado do proprio app.py (como sempre foi).
+UPLOAD_DIR = Path(os.environ["FOTOS_DIR"]) if os.environ.get("FOTOS_DIR") else (_base_dir() / "fotos")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 EXTENSOES_PERMITIDAS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
