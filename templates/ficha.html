@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Ficha - {{ produtor['nome_produtor'] or 'Produtor' }} - FATS{% endblock %}
+
+{% macro v(name) -%}
+{{ produtor[name] if produtor[name] not in (None, '') else '-' }}
+{%- endmacro %}
+
+{% block content %}
+<div class="card">
+  <div class="toolbar">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">&larr; Voltar</a>
+    <div style="display:flex; gap:8px;">
+      <a href="{{ url_for('editar', pid=produtor['id']) }}" class="btn btn-secondary btn-sm">Editar</a>
+      <a href="{{ url_for('pdf', pid=produtor['id']) }}" target="_blank" class="btn btn-primary btn-sm">Ver PDF</a>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:16px; margin-top:10px;">
+    {% if produtor['foto_produtor'] %}
+    <a href="{{ url_for('foto', nome=produtor['foto_produtor']) }}" target="_blank">
+      <img class="foto-ficha" src="{{ url_for('foto', nome=produtor['foto_produtor']) }}" alt="Foto de {{ produtor['nome_produtor'] }}">
+    </a>
+    {% endif %}
+    <div>
+      <h2 style="margin:0; color:var(--verde);">{{ (produtor['nome_produtor'] or '-')|upper }}</h2>
+      <p style="margin:2px 0 0; color:var(--cinza); font-size:0.9rem;">{{ (produtor['nome_propriedade'] or '-')|upper }} — {{ (produtor['municipio'] or '-')|upper }}</p>
+    </div>
+  </div>
+
+  <div class="section-title">1. Identificação Geral do Produtor e da Propriedade</div>
+  <div class="ficha-grid">
+    <div><label>Nome do Produtor</label><p>{{ (v('nome_produtor'))|upper }}</p></div>
+    <div><label>CPF</label><p>{{ v('cpf') }}</p></div>
+    <div><label>Data de Nascimento</label><p>{{ v('data_nascimento') }}</p></div>
+    <div><label>Telefone / Zap</label><p>{{ v('telefone') }}</p></div>
+    <div><label>DAP / CAF</label><p>{{ v('dap_caf') }}</p></div>
+    <div><label>Nome da Propriedade</label><p>{{ (v('nome_propriedade'))|upper }}</p></div>
+    <div><label>Município</label><p>{{ (v('municipio'))|upper }}</p></div>
+    <div><label>Comunidade / Distrito</label><p>{{ v('comunidade') }}</p></div>
+    <div><label>CAR</label><p>{{ v('car') }}</p></div>
+    <div><label>Latitude</label><p>{{ v('latitude') }}</p></div>
+    <div><label>Longitude</label><p>{{ v('longitude') }}</p></div>
+    <div><label>Assistido ATeG?</label><p>{{ v('assistido_ateg') }}</p></div>
+    <div class="full"><label>Técnico Responsável / Sindicato</label><p>{{ (v('tecnico_responsavel'))|upper }}</p></div>
+  </div>
+
+  <div class="section-title">2. Perfil Socioeconômico Mínimo e Segurança Hídrica</div>
+  <div class="ficha-grid">
+    <div><label>Membros Residentes no Lote (pessoas)</label><p>{{ v('membros_residentes') }}</p></div>
+    <div><label>Sucessão Familiar Identificada?</label><p>{{ v('sucessao_familiar') }}</p></div>
+    <div><label>Mão de Obra na Pecuária</label><p>{{ v('mao_obra') }}</p></div>
+    <div><label>Principal Fonte de Renda</label><p>{{ v('fonte_renda') }}</p></div>
+    <div><label>Fonte de Água Primária</label><p>{{ v('fonte_agua') }}</p></div>
+    <div><label>Segurança Hídrica (Estiagem)</label><p>{{ v('seguranca_hidrica') }}</p></div>
+  </div>
+
+  <div class="section-title">3. Perfil do Rebanho e Produção Leiteira Atual</div>
+  <div class="ficha-grid">
+    <div><label>Área Destinada ao Leite (ha)</label><p>{{ v('area_leite') }}</p></div>
+    <div><label>Volume Diário Total (L/dia)</label><p>{{ v('volume_diario') }}</p></div>
+    <div><label>Vacas em Lactação</label><p>{{ v('vacas_lactacao') }}</p></div>
+    <div><label>Vacas Secas</label><p>{{ v('vacas_secas') }}</p></div>
+    <div><label>Novilhas/Bezerras</label><p>{{ v('novilhas') }}</p></div>
+    <div><label>Touros/Garrotes</label><p>{{ v('touros') }}</p></div>
+    <div><label>Produtividade Média (L/vaca/dia)</label><p>{{ v('produtividade_media') }}</p></div>
+    <div><label>Destino da Produção</label><p>{{ v('destino_producao') }}</p></div>
+    <div><label>Composição Genética</label><p>{{ v('composicao_genetica') }}</p></div>
+    <div><label>Grau Girolando Predominante</label><p>{{ v('grau_girolando') }}</p></div>
+  </div>
+
+  <div class="section-title">4. Infraestrutura e Instalações da Propriedade</div>
+  <div class="ficha-grid">
+    <div><label>Curral / Ordenha</label><p>{{ v('curral_ordenha') }}</p></div>
+    <div><label>Tipo de Ordenha</label><p>{{ v('tipo_ordenha') }}</p></div>
+    <div><label>Higiene / Sanitização</label><p>{{ v('higiene_ordenha') }}</p></div>
+    <div><label>Refrigeração do Leite</label><p>{{ v('refrigeracao_leite') }}</p></div>
+    <div><label>Capacidade do Tanque (L)</label><p>{{ v('capacidade_tanque') }}</p></div>
+    <div><label>Tronco de Contenção / Brete</label><p>{{ v('tronco_contencao') }}</p></div>
+    <div class="full"><label>Observações / Ajustes Necessários</label><p>{{ v('obs_infraestrutura') }}</p></div>
+  </div>
+
+  <div class="section-title">5. Manejo Alimentar e Suporte Forrageiro</div>
+  <div class="ficha-grid">
+    <div><label>Silagem (Milho/Sorgo)</label><p>{{ v('silagem') }}</p></div>
+    <div><label>Estoque Estimado p/ Seca (meses)</label><p>{{ v('estoque_seca') }}</p></div>
+    <div><label>Palma Forrageira</label><p>{{ v('palma_forrageira') }}</p></div>
+    <div><label>Área Cultivada de Palma (ha/tarefas)</label><p>{{ v('area_palma') }}</p></div>
+    <div><label>Capineira (Capiaçu/Outros)</label><p>{{ v('capineira') }}</p></div>
+    <div><label>Área de Capineira/Pasto (ha)</label><p>{{ v('area_capineira') }}</p></div>
+    <div><label>Suplementação Concentrada</label><p>{{ v('suplementacao') }}</p></div>
+    <div><label>Sal Mineral Específico p/ Leite?</label><p>{{ v('sal_mineral') }}</p></div>
+    <div><label>Água Limpa e Abundante nos Bebedouros?</label><p>{{ v('agua_bebedouros') }}</p></div>
+  </div>
+
+  <div class="section-title">6. Triagem de Elegibilidade e Potencial para o Projeto FIV Ceará</div>
+  <div class="ficha-grid">
+    <div><label>Possui Fêmeas Aptas como Receptoras?</label><p>{{ v('aptidao_receptoras') }}</p></div>
+    <div><label>Qtd. Receptoras Estimadas Aptas (cabeças)</label><p>{{ v('qtd_receptoras') }}</p></div>
+    <div><label>Escore de Condição Corporal (ECC)</label><p>{{ v('ecc') }}</p></div>
+    <div><label>Vacinação Brucelose/Tuberculose em Dia?</label><p>{{ v('vacinacao_dia') }}</p></div>
+    <div><label>Acompanhamento Vet. Reprodutivo Regular?</label><p>{{ v('acompanhamento_vet') }}</p></div>
+  </div>
+
+  <div class="section-title">7. Parecer Técnico de Enquadramento e Recomendações</div>
+  <div class="ficha-grid">
+    <div class="full"><label>Programa Matrizes do Amanhã</label><p>{{ v('parecer_matrizes') }}</p></div>
+    <div class="full"><label>Projeto FIV Ceará</label><p>{{ v('parecer_fiv') }}</p></div>
+    <div class="full"><label>Observações / Recomendações Prioritárias do Técnico</label><p>{{ v('observacoes_tecnico') }}</p></div>
+    <div><label>Técnico Avaliador (Nome)</label><p>{{ (v('nome_tecnico'))|upper }}</p></div>
+    <div><label>CPF / Registro Profissional do Técnico</label><p>{{ v('cpf_tecnico') }}</p></div>
+  </div>
+
+  <div class="form-actions">
+    <a href="{{ url_for('editar', pid=produtor['id']) }}" class="btn btn-primary">Editar Cadastro</a>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">Voltar</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if produtor else 'Novo' }} Produtor - FATS{% endblock %}
+
+{% macro val(name) -%}
+{{ produtor[name] if produtor else '' }}
+{%- endmacro %}
+
+{% macro sel(name, options) %}
+<select name="{{ name }}">
+  <option value="">-- selecione --</option>
+  {% for opt in options %}
+  <option value="{{ opt }}" {% if produtor and produtor[name] == opt %}selected{% endif %}>{{ opt }}</option>
+  {% endfor %}
+</select>
+{% endmacro %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data">
+<div class="card">
+  <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">&larr; Voltar</a>
+
+  <div class="section-title">1. Identificação Geral do Produtor e da Propriedade</div>
+  <div class="grid">
+    <div class="grid full foto-upload">
+      <label>Foto do Produtor</label>
+      {% if produtor and produtor['foto_produtor'] %}
+      <div class="foto-preview">
+        <a href="{{ url_for('foto', nome=produtor['foto_produtor']) }}" target="_blank">
+          <img src="{{ url_for('foto', nome=produtor['foto_produtor']) }}" alt="Foto do produtor">
+        </a>
+        <span class="foto-hint">Clique na foto para ver em tamanho maior. Escolha um arquivo abaixo para substituir.</span>
+      </div>
+      {% endif %}
+      <input type="file" name="foto_produtor" accept="image/*">
+    </div>
+    <div><label>Nome do Produtor</label><input type="text" name="nome_produtor" class="upper-input" style="text-transform:uppercase;" value="{{ val('nome_produtor')|upper }}"></div>
+    <div><label>CPF</label><input type="text" name="cpf" class="cpf-mask" inputmode="numeric" maxlength="14" placeholder="000.000.000-00" value="{{ val('cpf') }}"></div>
+    <div><label>Data de Nascimento</label><input type="text" name="data_nascimento" class="date-br" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" pattern="\d{2}/\d{2}/\d{4}" value="{{ val('data_nascimento') }}"></div>
+    <div><label>Telefone / Zap</label><input type="text" name="telefone" class="telefone-mask" inputmode="numeric" maxlength="15" placeholder="(00) 00000-0000" value="{{ val('telefone') }}"></div>
+    <div><label>DAP / CAF</label><input type="text" name="dap_caf" value="{{ val('dap_caf') }}"></div>
+    <div><label>Nome da Propriedade</label><input type="text" name="nome_propriedade" class="upper-input" style="text-transform:uppercase;" value="{{ val('nome_propriedade')|upper }}"></div>
+    <div>
+      <label>Município</label>
+      <select name="municipio">
+        <option value="">Selecione...</option>
+        {% for m in municipios %}
+        <option value="{{ m }}" {% if val('municipio') and val('municipio')|upper == m|upper %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div><label>Comunidade / Distrito</label><input type="text" name="comunidade" value="{{ val('comunidade') }}"></div>
+    <div><label>CAR</label><input type="text" name="car" value="{{ val('car') }}"></div>
+    <div><label>Latitude</label><input type="text" name="latitude" value="{{ val('latitude') }}" placeholder="-7.123456"></div>
+    <div><label>Longitude</label><input type="text" name="longitude" value="{{ val('longitude') }}" placeholder="-38.123456"></div>
+    <div><label>Assistido ATeG?</label>{{ sel('assistido_ateg', ['Sim', 'Não']) }}</div>
+    <div class="grid full"><label>Técnico Responsável / Sindicato</label><input type="text" name="tecnico_responsavel" class="upper-input" style="text-transform:uppercase;" value="{{ val('tecnico_responsavel')|upper }}"></div>
+  </div>
+
+  <div class="section-title">2. Perfil Socioeconômico Mínimo e Segurança Hídrica</div>
+  <div class="grid">
+    <div><label>Membros Residentes no Lote (pessoas)</label><input type="text" name="membros_residentes" class="only-digits" inputmode="numeric" value="{{ val('membros_residentes') }}"></div>
+    <div><label>Sucessão Familiar Identificada?</label>{{ sel('sucessao_familiar', ['Sim', 'Não']) }}</div>
+    <div><label>Mão de Obra na Pecuária</label>{{ sel('mao_obra', ['Exclusivamente Familiar', 'Familiar + Contratada', 'Exclusivamente Contratada']) }}</div>
+    <div><label>Principal Fonte de Renda</label>{{ sel('fonte_renda', ['Bacia Leiteira (Principal)', 'Diversificada (Outras agropecuárias)', 'Outras Rendas / Aposentadoria']) }}</div>
+    <div><label>Fonte de Água Primária</label>{{ sel('fonte_agua', ['Poço Artesiano', 'Açude / Barreiro', 'Canal / Cisterna', 'Rio / Riacho']) }}</div>
+    <div><label>Segurança Hídrica (Estiagem)</label>{{ sel('seguranca_hidrica', ['Suficiente (Ano todo)', 'Crítica (Racionamento temporário)', 'Insuficiente (Necessita carro-pipa)']) }}</div>
+  </div>
+
+  <div class="section-title">3. Perfil do Rebanho e Produção Leiteira Atual</div>
+  <div class="grid">
+    <div><label>Área Destinada ao Leite (ha)</label><input type="text" name="area_leite" class="decimal-digits" inputmode="decimal" value="{{ val('area_leite') }}"></div>
+    <div><label>Volume Diário Total (L/dia)</label><input type="text" id="volume_diario" name="volume_diario" class="decimal-digits" inputmode="decimal" value="{{ val('volume_diario') }}" required></div>
+    <div><label>Vacas em Lactação</label><input type="text" id="vacas_lactacao" name="vacas_lactacao" class="only-digits" inputmode="numeric" value="{{ val('vacas_lactacao') }}" required></div>
+    <div><label>Vacas Secas</label><input type="text" name="vacas_secas" class="only-digits" inputmode="numeric" value="{{ val('vacas_secas') }}"></div>
+    <div><label>Novilhas/Bezerras</label><input type="text" name="novilhas" class="only-digits" inputmode="numeric" value="{{ val('novilhas') }}"></div>
+    <div><label>Touros/Garrotes</label><input type="text" name="touros" class="only-digits" inputmode="numeric" value="{{ val('touros') }}"></div>
+    <div><label>Produtividade Média (L/vaca/dia) — calculado automaticamente</label><input type="text" id="produtividade_media" name="produtividade_media" class="decimal-digits" inputmode="decimal" value="{{ val('produtividade_media') }}" readonly style="background:#f2f2f2;"></div>
+    <div><label>Destino da Produção</label>{{ sel('destino_producao', ['Laticínio / Formal', 'Queijaria / Informal', 'Cooperativa']) }}</div>
+    <div><label>Composição Genética</label>{{ sel('composicao_genetica', ['Girolando', 'Zebuíno Leiteiro (Gir/Guzerá/Sindi)', 'Misto / Sem Padrão']) }}</div>
+    <div><label>Grau Girolando Predominante</label><input type="text" name="grau_girolando" value="{{ val('grau_girolando') }}"></div>
+  </div>
+
+  <div class="section-title">4. Infraestrutura e Instalações da Propriedade</div>
+  <div class="grid">
+    <div><label>Curral / Ordenha</label>{{ sel('curral_ordenha', ['Adequado', 'Regular', 'Precário']) }}</div>
+    <div><label>Tipo de Ordenha</label>{{ sel('tipo_ordenha', ['Mecânica', 'Manual']) }}</div>
+    <div><label>Higiene / Sanitização</label>{{ sel('higiene_ordenha', ['Boa', 'Regular', 'Inadequada']) }}</div>
+    <div><label>Refrigeração do Leite</label>{{ sel('refrigeracao_leite', ['Tanque Próprio', 'Tanque Coletivo', 'Latão (Sem Refrigeração)']) }}</div>
+    <div><label>Capacidade do Tanque (L)</label><input type="text" name="capacidade_tanque" class="decimal-digits" inputmode="decimal" value="{{ val('capacidade_tanque') }}"></div>
+    <div><label>Tronco de Contenção / Brete</label>{{ sel('tronco_contencao', ['Possui (Com cobertura/Sombra)', 'Possui (Sem cobertura)', 'Não possui Tronco de Contenção']) }}</div>
+    <div class="grid full"><label>Observações / Ajustes Necessários</label><textarea name="obs_infraestrutura">{{ val('obs_infraestrutura') }}</textarea></div>
+  </div>
+
+  <div class="section-title">5. Manejo Alimentar e Suporte Forrageiro</div>
+  <div class="grid">
+    <div><label>Silagem (Milho/Sorgo)</label>{{ sel('silagem', ['Sim', 'Não']) }}</div>
+    <div><label>Estoque Estimado p/ Seca (meses)</label><input type="text" name="estoque_seca" class="decimal-digits" inputmode="decimal" value="{{ val('estoque_seca') }}"></div>
+    <div><label>Palma Forrageira</label>{{ sel('palma_forrageira', ['Sim', 'Não']) }}</div>
+    <div><label>Área Cultivada de Palma (ha/tarefas)</label><input type="text" name="area_palma" class="decimal-digits" inputmode="decimal" value="{{ val('area_palma') }}"></div>
+    <div><label>Capineira (Capiaçu/Outros)</label>{{ sel('capineira', ['Sim', 'Não']) }}</div>
+    <div><label>Área de Capineira/Pasto (ha)</label><input type="text" name="area_capineira" class="decimal-digits" inputmode="decimal" value="{{ val('area_capineira') }}"></div>
+    <div><label>Suplementação Concentrada</label>{{ sel('suplementacao', ['Ração Comercial no Cocho', 'Mistura Na Propriedade', 'Apenas Época Crítica', 'Não Fornece']) }}</div>
+    <div><label>Sal Mineral Específico p/ Leite?</label>{{ sel('sal_mineral', ['Sim', 'Não']) }}</div>
+    <div><label>Água Limpa e Abundante nos Bebedouros?</label>{{ sel('agua_bebedouros', ['Sim', 'Não']) }}</div>
+  </div>
+
+  <div class="section-title">6. Triagem de Elegibilidade e Potencial para o Projeto FIV Ceará</div>
+  <div class="grid">
+    <div><label>Possui Fêmeas Aptas como Receptoras?</label>{{ sel('aptidao_receptoras', ['Sim', 'Não']) }}</div>
+    <div><label>Qtd. Receptoras Estimadas Aptas (cabeças)</label><input type="text" name="qtd_receptoras" class="only-digits" inputmode="numeric" value="{{ val('qtd_receptoras') }}"></div>
+    <div><label>Escore de Condição Corporal (ECC)</label>{{ sel('ecc', ['Abaixo de 2,5 (Inapto momento)', 'Entre 2,75 e 3,5 (Ideal para Protocolo/IATF/TE)', 'Acima de 4,0 (Sobrepeso / Descarte)']) }}</div>
+    <div><label>Vacinação Brucelose/Tuberculose em Dia?</label>{{ sel('vacinacao_dia', ['Sim', 'Não']) }}</div>
+    <div><label>Acompanhamento Vet. Reprodutivo Regular?</label>{{ sel('acompanhamento_vet', ['Sim', 'Não']) }}</div>
+  </div>
+
+  <div class="section-title">7. Parecer Técnico de Enquadramento e Recomendações</div>
+  <div class="grid">
+    <div><label>Programa Matrizes do Amanhã</label>{{ sel('parecer_matrizes', ['APTO: Atende aos requisitos sociais, hídricos e estruturais.', 'APTO COM CONDICIONANTES: Necessita adequação alimentar/sanitária prévia.', 'INAPTO NO MOMENTO: Falta de segurança hídrica ou suporte forrageiro mínimo.']) }}</div>
+    <div><label>Projeto FIV Ceará</label>{{ sel('parecer_fiv', ['RECOMENDADO: Estrutura de contenção, nutrição e receptoras prontas.', 'EM PREPARAÇÃO: Requer ajuste do ECC e imunização prévia.', 'NÃO RECOMENDADO NO MOMENTO.']) }}</div>
+    <div class="grid full"><label>Observações / Recomendações Prioritárias do Técnico</label><textarea name="observacoes_tecnico">{{ val('observacoes_tecnico') }}</textarea></div>
+    <div><label>Técnico Avaliador (Nome)</label><input type="text" name="nome_tecnico" class="upper-input" style="text-transform:uppercase;" value="{{ val('nome_tecnico')|upper }}"></div>
+    <div><label>CPF / Registro Profissional do Técnico</label><input type="text" name="cpf_tecnico" class="only-digits" inputmode="numeric" value="{{ val('cpf_tecnico') }}"></div>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Salvar</button>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancelar</a>
+  </div>
+</div>
+</form>
+
+<script>
+(function () {
+  // Nome do Produtor / Nome da Propriedade: forca caixa alta enquanto digita
+  document.querySelectorAll('.upper-input').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var pos = this.selectionStart;
+      this.value = this.value.toUpperCase();
+      this.setSelectionRange(pos, pos);
+    });
+  });
+
+  // Campos que so aceitam numeros inteiros (CPF, telefone, quantidades...)
+  document.querySelectorAll('.only-digits').forEach(function (el) {
+    el.addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '');
+    });
+  });
+
+  // Campos numericos que aceitam casas decimais (com virgula, padrao BR)
+  document.querySelectorAll('.decimal-digits').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var v = this.value.replace(/[^0-9,]/g, '');
+      var partes = v.split(',');
+      if (partes.length > 2) {
+        v = partes[0] + ',' + partes.slice(1).join('');
+      }
+      this.value = v;
+    });
+  });
+
+  // Data de Nascimento: aplica mascara dd/mm/aaaa automaticamente
+  document.querySelectorAll('.date-br').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var v = this.value.replace(/\D/g, '').slice(0, 8);
+      if (v.length >= 5) {
+        v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
+      } else if (v.length >= 3) {
+        v = v.slice(0, 2) + '/' + v.slice(2);
+      }
+      this.value = v;
+    });
+  });
+
+  // CPF: aplica mascara 000.000.000-00 automaticamente
+  document.querySelectorAll('.cpf-mask').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var v = this.value.replace(/\D/g, '').slice(0, 11);
+      if (v.length > 9) {
+        v = v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6, 9) + '-' + v.slice(9);
+      } else if (v.length > 6) {
+        v = v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6);
+      } else if (v.length > 3) {
+        v = v.slice(0, 3) + '.' + v.slice(3);
+      }
+      this.value = v;
+    });
+  });
+
+  // Telefone: aplica mascara (00) 00000-0000 (celular) ou (00) 0000-0000 (fixo)
+  document.querySelectorAll('.telefone-mask').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var v = this.value.replace(/\D/g, '').slice(0, 11);
+      if (v.length > 10) {
+        v = '(' + v.slice(0, 2) + ') ' + v.slice(2, 7) + '-' + v.slice(7);
+      } else if (v.length > 6) {
+        v = '(' + v.slice(0, 2) + ') ' + v.slice(2, 6) + '-' + v.slice(6);
+      } else if (v.length > 2) {
+        v = '(' + v.slice(0, 2) + ') ' + v.slice(2);
+      } else if (v.length > 0) {
+        v = '(' + v;
+      }
+      this.value = v;
+    });
+  });
+  // Produtividade Media = Volume Diario Total / Vacas em Lactacao (calculado sozinho)
+  (function () {
+    var volume = document.getElementById('volume_diario');
+    var vacas = document.getElementById('vacas_lactacao');
+    var produtividade = document.getElementById('produtividade_media');
+    if (!volume || !vacas || !produtividade) return;
+
+    function calcular() {
+      var v = parseFloat((volume.value || '').replace(',', '.'));
+      var n = parseInt(vacas.value || '', 10);
+      if (!isNaN(v) && !isNaN(n) && n > 0) {
+        produtividade.value = (v / n).toFixed(2).replace('.', ',');
+      } else {
+        produtividade.value = '';
+      }
+    }
+
+    volume.addEventListener('input', calcular);
+    vacas.addEventListener('input', calcular);
+    calcular();
+  })();
+})();
+</script>
+{% endblock %}

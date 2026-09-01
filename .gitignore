@@ -1,0 +1,32 @@
+# ---- Segredos: NUNCA publicar ----
+.env
+*.env
+!.env.example
+
+# ---- Banco de dados local antigo (SQLite) ----
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Fotos dos produtores (dados pessoais - não vão para o Git) ----
+fotos/*
+!fotos/.gitkeep
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ---- Build do PyInstaller (.exe) ----
+build/
+dist/
+
+# ---- Editor / SO ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

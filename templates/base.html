@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}FATS - Matrizes do Amanhã / FIV Ceará{% endblock %}</title>
+<style>
+  :root {
+    --verde: #2f5233;
+    --verde-claro: #e8f0e6;
+    --cinza: #555;
+    --borda: #ddd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f4f6f4;
+    margin: 0;
+    color: #222;
+  }
+  header {
+    background: var(--verde);
+    color: white;
+    padding: 16px 24px;
+  }
+  header h1 { margin: 0; font-size: 1.2rem; }
+  header p { margin: 2px 0 0; font-size: 0.8rem; opacity: 0.85; }
+  main {
+    max-width: 1280px;
+    margin: 24px auto;
+    padding: 0 16px 40px;
+  }
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+  }
+  .flash {
+    padding: 10px 16px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    background: var(--verde-claro);
+    color: var(--verde);
+    border: 1px solid var(--verde);
+    font-size: 0.9rem;
+  }
+  .flash.error {
+    background: #fce8e8;
+    color: #b23b3b;
+    border: 1px solid #b23b3b;
+  }
+  .btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--verde); color: white; }
+  .btn-secondary { background: #eee; color: #333; }
+  .btn-danger { background: #b23b3b; color: white; }
+  .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+  table.list { width: 100%; border-collapse: collapse; }
+  table.list th, table.list td {
+    text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--borda); font-size: 0.95rem;
+  }
+  table.list th { color: var(--cinza); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+  table.list th.col-principal { color: var(--verde); }
+  table.list td.col-principal { font-weight: 600; }
+  .nowrap { white-space: nowrap; }
+  .link-produtor { color: var(--verde); text-decoration: none; }
+  .link-produtor:hover { text-decoration: underline; }
+  .foto-preview { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .foto-preview img {
+    width: 110px; height: 110px; object-fit: cover; border-radius: 10px;
+    border: 1px solid var(--borda); cursor: pointer;
+  }
+  .foto-hint { font-size: 0.8rem; color: var(--cinza); max-width: 260px; }
+  .foto-thumb {
+    width: 44px; height: 44px; object-fit: cover; border-radius: 50%;
+    border: 1px solid var(--borda); cursor: pointer; display: block;
+  }
+  .foto-thumb-placeholder {
+    width: 44px; height: 44px; border-radius: 50%; border: 1px dashed var(--borda);
+    display: flex; align-items: center; justify-content: center; color: #ccc; font-size: 0.7rem;
+  }
+  .foto-ficha { width: 160px; height: 160px; object-fit: cover; border-radius: 10px; border: 1px solid var(--borda); cursor: pointer; }
+  .actions { white-space: nowrap; }
+  .actions form { display: inline; }
+  input[type=text], input[type=search] {
+    padding: 8px 12px; border: 1px solid var(--borda); border-radius: 6px; font-size: 0.9rem;
+  }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
+  .section-title {
+    background: var(--verde); color: white; padding: 8px 12px; border-radius: 4px;
+    font-size: 0.95rem; margin: 24px 0 14px;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+  .grid.full { grid-template-columns: 1fr; }
+  label { display: block; font-size: 0.8rem; color: var(--cinza); margin-bottom: 4px; }
+  input[type=text], input[type=number], input[type=date], select, textarea {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 6px; font-size: 0.9rem;
+    font-family: inherit;
+  }
+  textarea { min-height: 70px; resize: vertical; }
+  .form-actions { margin-top: 24px; display: flex; gap: 10px; }
+  .empty { text-align: center; color: #999; padding: 40px 0; }
+  .ficha-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
+  .ficha-grid .full { grid-column: 1 / -1; }
+  .ficha-grid label { display: block; font-size: 0.78rem; color: var(--cinza); text-transform: uppercase; margin-bottom: 2px; }
+  .ficha-grid p { margin: 0 0 8px; font-size: 0.95rem; padding-bottom: 6px; border-bottom: 1px solid var(--borda); }
+  @media (max-width: 640px) {
+    .grid { grid-template-columns: 1fr; }
+    .ficha-grid { grid-template-columns: 1fr; }
+    table.list { font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Ficha de Avaliação Técnico-Social (FATS)</h1>
+  <p>Programa Matrizes do Amanhã &amp; Interface FIV Ceará — FAEC / SENAR-CE</p>
+</header>
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, msg in messages %}
+        <div class="flash {{ category }}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<footer style="text-align:center; padding:20px 10px 30px; color:#b7b7b7; font-size:0.75rem;">
+  Sistema FATS — versão com foto do produtor, máscaras e ficha (28/08/2026)
+</footer>
+</body>
+</html>
