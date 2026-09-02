@@ -39,12 +39,12 @@
           <span class="foto-thumb-placeholder">-</span>
           {% endif %}
         </td>
-        <td class="col-principal nowrap">{{ p['cpf']|mascara_cpf if p['cpf'] else '-' }}</td>
+        <td class="nowrap">{{ p['cpf']|mascara_cpf if p['cpf'] else '-' }}</td>
         <td class="col-principal">
           <a class="link-produtor" href="{{ url_for('ficha', pid=p['id']) }}">{{ (p['nome_produtor'] or '-')|upper }}</a>
         </td>
-        <td class="col-principal">{{ (p['nome_propriedade'] or '-')|upper }}</td>
-        <td class="col-principal">{{ (p['municipio'] or '-')|upper }}</td>
+        <td>{{ (p['nome_propriedade'] or '-')|upper }}</td>
+        <td>{{ (p['municipio'] or '-')|upper }}</td>
         <td>{{ p['assistido_ateg'] or '-' }}</td>
         <td>{{ (p['tecnico_responsavel'] or '-')|upper }}</td>
         <td class="actions">
