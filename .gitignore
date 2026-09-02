@@ -8,6 +8,10 @@
 *.sqlite
 *.sqlite3
 
+# ---- Fila local de cadastros offline (dados ainda nao sincronizados) ----
+fila_offline.db
+fila_fotos/
+
 # ---- Fotos dos produtores (dados pessoais - não vão para o Git) ----
 fotos/*
 !fotos/.gitkeep

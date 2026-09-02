@@ -4,6 +4,9 @@ import re
 import sys
 import uuid
 from pathlib import Path
+
+import psycopg2
+import requests
 from flask import (
     Flask, render_template, request, redirect, url_for, flash, send_file,
     send_from_directory, abort
@@ -13,7 +16,12 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 from database import get_connection, init_db, _base_dir
 from pdf_generator import generate_pdf
-from supabase_storage import enviar_foto
+from supabase_storage import enviar_bytes
+from campos import FIELDS, FIELD_LABELS, MUNICIPIOS_CEARA
+from fila_offline import (
+    adicionar_na_fila, listar_pendentes, contar_pendentes, remover_da_fila,
+    FILA_FOTOS_DIR,
+)
 
 
 # Pasta onde as fotos dos produtores ficam salvas (ao lado do banco de
@@ -23,7 +31,14 @@ from supabase_storage import enviar_foto
 # (ex: /var/data/fotos). Localmente, sem essa variavel, continua usando a
 # pasta "fotos" do lado do proprio app.py (como sempre foi).
 UPLOAD_DIR = Path(os.environ["FOTOS_DIR"]) if os.environ.get("FOTOS_DIR") else (_base_dir() / "fotos")
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+try:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    # Em hospedagens com disco somente-leitura (Vercel, por exemplo), essa
+    # pasta local nao pode ser criada - sem problema, pois as fotos novas
+    # vao direto para o Supabase Storage. Essa pasta so serve para exibir
+    # fotos antigas, salvas localmente antes da migracao.
+    pass
 EXTENSOES_PERMITIDAS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
@@ -103,11 +118,6 @@ def _exibir_data(valor: str) -> str:
     return valor
 
 
-def _salvar_foto(arquivo) -> str:
-    """Envia a foto para o Supabase Storage e devolve a URL publica dela."""
-    return enviar_foto(arquivo)
-
-
 def _foto_atual(pid) -> str:
     """Retorna o nome da foto ja salva para esse produtor (para nao perder
     a foto quando o formulario e reenviado sem escolher um novo arquivo)."""
@@ -157,136 +167,7 @@ def _injetar_helpers():
         if nome.startswith("http://") or nome.startswith("https://"):
             return nome
         return url_for("foto", nome=nome)
-    return dict(foto_url=foto_url)
-
-# Todos os campos do formulario, na ordem em que aparecem na ficha
-FIELDS = [
-    "nome_produtor", "cpf", "data_nascimento", "telefone", "dap_caf",
-    "nome_propriedade", "municipio", "comunidade", "car", "latitude", "longitude",
-    "assistido_ateg", "tecnico_responsavel", "foto_produtor",
-
-    "membros_residentes", "sucessao_familiar", "mao_obra", "fonte_renda",
-    "fonte_agua", "seguranca_hidrica",
-
-    "area_leite", "volume_diario", "vacas_lactacao", "vacas_secas",
-    "novilhas", "touros", "produtividade_media", "destino_producao",
-    "composicao_genetica", "grau_girolando",
-
-    "curral_ordenha", "tipo_ordenha", "higiene_ordenha", "refrigeracao_leite",
-    "capacidade_tanque", "tronco_contencao", "obs_infraestrutura",
-
-    "silagem", "estoque_seca", "palma_forrageira", "area_palma",
-    "capineira", "area_capineira", "suplementacao", "sal_mineral",
-    "agua_bebedouros",
-
-    "aptidao_receptoras", "qtd_receptoras", "ecc", "vacinacao_dia",
-    "acompanhamento_vet",
-
-    "parecer_matrizes", "parecer_fiv", "observacoes_tecnico",
-    "nome_tecnico", "cpf_tecnico",
-]
-
-# Rotulos (cabecalhos) legiveis para cada campo, usados na exportacao em Excel
-FIELD_LABELS = {
-    "nome_produtor": "Nome do Produtor",
-    "cpf": "CPF",
-    "data_nascimento": "Data de Nascimento",
-    "telefone": "Telefone / Zap",
-    "dap_caf": "DAP / CAF",
-    "nome_propriedade": "Nome da Propriedade",
-    "municipio": "Município",
-    "comunidade": "Comunidade / Distrito",
-    "car": "CAR",
-    "latitude": "Latitude",
-    "longitude": "Longitude",
-    "assistido_ateg": "Assistido ATeG?",
-    "tecnico_responsavel": "Técnico Responsável / Sindicato",
-    "foto_produtor": "Foto do Produtor (arquivo)",
-    "membros_residentes": "Membros Residentes no Lote (pessoas)",
-    "sucessao_familiar": "Sucessão Familiar Identificada?",
-    "mao_obra": "Mão de Obra na Pecuária",
-    "fonte_renda": "Principal Fonte de Renda",
-    "fonte_agua": "Fonte de Água Primária",
-    "seguranca_hidrica": "Segurança Hídrica (Estiagem)",
-    "area_leite": "Área Destinada ao Leite (ha)",
-    "volume_diario": "Volume Diário Total (L/dia)",
-    "vacas_lactacao": "Vacas em Lactação",
-    "vacas_secas": "Vacas Secas",
-    "novilhas": "Novilhas/Bezerras",
-    "touros": "Touros/Garrotes",
-    "produtividade_media": "Produtividade Média (L/vaca/dia)",
-    "destino_producao": "Destino da Produção",
-    "composicao_genetica": "Composição Genética",
-    "grau_girolando": "Grau Girolando Predominante",
-    "curral_ordenha": "Curral / Ordenha",
-    "tipo_ordenha": "Tipo de Ordenha",
-    "higiene_ordenha": "Higiene / Sanitização",
-    "refrigeracao_leite": "Refrigeração do Leite",
-    "capacidade_tanque": "Capacidade do Tanque (L)",
-    "tronco_contencao": "Tronco de Contenção / Brete",
-    "obs_infraestrutura": "Observações / Ajustes Necessários",
-    "silagem": "Silagem (Milho/Sorgo)",
-    "estoque_seca": "Estoque Estimado p/ Seca (meses)",
-    "palma_forrageira": "Palma Forrageira",
-    "area_palma": "Área Cultivada de Palma (ha/tarefas)",
-    "capineira": "Capineira (Capiaçu/Outros)",
-    "area_capineira": "Área de Capineira/Pasto (ha)",
-    "suplementacao": "Suplementação Concentrada",
-    "sal_mineral": "Sal Mineral Específico p/ Leite?",
-    "agua_bebedouros": "Água Limpa e Abundante nos Bebedouros?",
-    "aptidao_receptoras": "Possui Fêmeas Aptas como Receptoras?",
-    "qtd_receptoras": "Qtd. Receptoras Estimadas Aptas (cabeças)",
-    "ecc": "Escore de Condição Corporal (ECC)",
-    "vacinacao_dia": "Vacinação Brucelose/Tuberculose em Dia?",
-    "acompanhamento_vet": "Acompanhamento Vet. Reprodutivo Regular?",
-    "parecer_matrizes": "Programa Matrizes do Amanhã",
-    "parecer_fiv": "Projeto FIV Ceará",
-    "observacoes_tecnico": "Observações / Recomendações Prioritárias do Técnico",
-    "nome_tecnico": "Técnico Avaliador (Nome)",
-    "cpf_tecnico": "CPF / Registro Profissional do Técnico",
-}
-
-# Lista dos 184 municípios do Ceará (ordem alfabética), usada no menu
-# suspenso do campo "Município" para evitar erros de digitação.
-MUNICIPIOS_CEARA = [
-    "Abaiara", "Acarapé", "Acaraú", "Acopiara", "Aiuaba", "Alcântaras",
-    "Altaneira", "Alto Santo", "Amontada", "Antonina do Norte", "Apuiarés",
-    "Aquiraz", "Aracati", "Aracoiaba", "Ararendá", "Araripe", "Aratuba",
-    "Arneiroz", "Assaré", "Aurora", "Baixio", "Banabuiú", "Barbalha",
-    "Barreira", "Barro", "Barroquinha", "Baturité", "Beberibe", "Bela Cruz",
-    "Boa Viagem", "Brejo Santo", "Camocim", "Campos Sales", "Canindé",
-    "Capistrano", "Caridade", "Cariré", "Caririaçu", "Cariús", "Carnaubal",
-    "Cascavel", "Catarina", "Catunda", "Caucaia", "Cedro", "Chaval",
-    "Choró", "Chorozinho", "Coreaú", "Crateús", "Crato", "Croatá", "Cruz",
-    "Deputado Irapuan Pinheiro", "Ererê", "Eusébio", "Farias Brito",
-    "Forquilha", "Fortaleza", "Fortim", "Frecheirinha", "General Sampaio",
-    "Graça", "Granja", "Granjeiro", "Groaíras", "Guaiúba",
-    "Guaraciaba do Norte", "Guaramiranga", "Hidrolândia", "Horizonte",
-    "Ibaretama", "Ibiapina", "Ibicuitinga", "Icapuí", "Icó", "Iguatu",
-    "Independência", "Ipaporanga", "Ipaumirim", "Ipu", "Ipueiras",
-    "Iracema", "Irauçuba", "Itaiçaba", "Itaitinga", "Itapajé", "Itapipoca",
-    "Itapiúna", "Itarema", "Itatira", "Jaguaretama", "Jaguaribara",
-    "Jaguaribe", "Jaguaruana", "Jardim", "Jati", "Jijoca de Jericoacoara",
-    "Juazeiro do Norte", "Jucás", "Lavras da Mangabeira",
-    "Limoeiro do Norte", "Madalena", "Maracanaú", "Maranguape", "Marco",
-    "Martinópole", "Massapê", "Mauriti", "Meruoca", "Milagres", "Milhã",
-    "Miraíma", "Missão Velha", "Mombaça", "Monsenhor Tabosa",
-    "Morada Nova", "Moraújo", "Morrinhos", "Mucambo", "Mulungu",
-    "Nova Olinda", "Nova Russas", "Novo Oriente", "Ocara", "Orós",
-    "Pacajus", "Pacatuba", "Pacoti", "Pacujá", "Palhano", "Palmácia",
-    "Paracuru", "Paraipaba", "Parambu", "Paramoti", "Pedra Branca",
-    "Penaforte", "Pentecoste", "Pereiro", "Pindoretama", "Piquet Carneiro",
-    "Pires Ferreira", "Poranga", "Porteiras", "Potengi", "Potiretama",
-    "Quiterianópolis", "Quixadá", "Quixelô", "Quixeramobim", "Quixeré",
-    "Redenção", "Reriutaba", "Russas", "Saboeiro", "Salitre",
-    "Santana do Acaraú", "Santana do Cariri", "Santa Quitéria",
-    "São Benedito", "São Gonçalo do Amarante", "São João do Jaguaribe",
-    "São Luís do Curu", "Senador Pompeu", "Senador Sá", "Sobral",
-    "Solonópole", "Tabuleiro do Norte", "Tamboril", "Tarrafas", "Tauá",
-    "Tejuçuoca", "Tianguá", "Trairi", "Tururu", "Ubajara", "Umari",
-    "Umirim", "Uruburetama", "Uruoca", "Varjota", "Várzea Alegre",
-    "Viçosa do Ceará",
-]
+    return dict(foto_url=foto_url, qtd_pendentes_offline=contar_pendentes())
 
 # Campos considerados na checagem de "ficha completa". A foto fica de fora
 # porque nem sempre é possível tirar foto do produtor na hora da visita.
@@ -411,16 +292,39 @@ def editar(pid):
     return render_template("form.html", produtor=produtor, municipios=MUNICIPIOS_CEARA)
 
 
+def _erro_de_conexao(e: Exception) -> bool:
+    """Detecta se a excecao e por falta de internet/conexao com o Supabase
+    (para diferenciar de outros bugs de verdade, que devem continuar
+    aparecendo normalmente como erro)."""
+    if isinstance(e, (psycopg2.OperationalError, requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+        return True
+    # psycopg2 as vezes embrulha o erro de conexao dentro de outro tipo -
+    # olhamos tambem o texto da mensagem, por seguranca.
+    texto = str(e).lower()
+    return any(p in texto for p in [
+        "could not connect", "connection refused", "network is unreachable",
+        "timeout expired", "temporary failure in name resolution",
+        "failed to establish a new connection",
+    ])
+
+
 def _salvar(pid):
+    # A foto e lida uma unica vez aqui (antes de mais nada), para podermos
+    # tanto enviar ao Supabase Storage quanto, se precisar, guardar na fila
+    # offline local.
+    arquivo_foto = request.files.get("foto_produtor")
+    foto_bytes = None
+    foto_nome_original = ""
+    foto_mimetype = ""
+    if arquivo_foto and arquivo_foto.filename:
+        foto_bytes = arquivo_foto.read()
+        foto_nome_original = arquivo_foto.filename
+        foto_mimetype = arquivo_foto.mimetype or ""
+
     dados = {}
     for f in FIELDS:
         if f == "foto_produtor":
-            arquivo = request.files.get("foto_produtor")
-            if arquivo and arquivo.filename:
-                dados[f] = _salvar_foto(arquivo)
-            else:
-                dados[f] = _foto_atual(pid)
-            continue
+            continue  # tratada a parte, acima
         valor = request.form.get(f, "").strip()
         if f in CAMPOS_MAIUSCULOS:
             valor = valor.upper()
@@ -443,6 +347,7 @@ def _salvar(pid):
             "- eles são obrigatórios e usados para calcular a produtividade.",
             "error",
         )
+        dados["foto_produtor"] = _foto_atual(pid)
         return False, dados
 
     # Produtividade Media = Volume Diario Total / Vacas em Lactacao
@@ -455,25 +360,117 @@ def _salvar(pid):
     except (ValueError, ZeroDivisionError):
         dados["produtividade_media"] = ""
 
-    conn = get_connection()
-    if pid is None:
-        cols = ", ".join(FIELDS)
-        placeholders = ", ".join(["?"] * len(FIELDS))
-        conn.execute(
-            f"INSERT INTO produtores ({cols}) VALUES ({placeholders})",
-            [dados[f] for f in FIELDS],
+    # ---- Tenta salvar direto no Supabase (banco + foto) ----
+    try:
+        foto_final = _foto_atual(pid)
+        if foto_bytes:
+            foto_final = enviar_bytes(foto_bytes, foto_nome_original, foto_mimetype)
+        dados["foto_produtor"] = foto_final
+
+        conn = get_connection()
+        if pid is None:
+            cols = ", ".join(FIELDS)
+            placeholders = ", ".join(["?"] * len(FIELDS))
+            conn.execute(
+                f"INSERT INTO produtores ({cols}) VALUES ({placeholders})",
+                [dados[f] for f in FIELDS],
+            )
+            flash("Produtor cadastrado com sucesso.", "success")
+        else:
+            set_clause = ", ".join([f"{f} = ?" for f in FIELDS])
+            conn.execute(
+                f"UPDATE produtores SET {set_clause}, atualizado_em = now() WHERE id = ?",
+                [dados[f] for f in FIELDS] + [pid],
+            )
+            flash("Cadastro atualizado com sucesso.", "success")
+        conn.commit()
+        conn.close()
+        return True, dados
+
+    except Exception as e:
+        if not _erro_de_conexao(e):
+            raise  # erro de verdade (bug) - nao esconde, deixa aparecer
+
+        if pid is not None:
+            # Editar um cadastro que ja existe no servidor exige internet
+            # (nao da pra "mesclar" edicoes offline com seguranca aqui).
+            flash(
+                "Sem conexão com a internet no momento - não é possível "
+                "editar um cadastro que já existe no servidor enquanto "
+                "estiver offline. Tente novamente quando tiver internet.",
+                "error",
+            )
+            dados["foto_produtor"] = _foto_atual(pid)
+            return False, dados
+
+        # Cadastro novo -> guarda na fila local para sincronizar depois
+        dados["foto_produtor"] = ""
+        id_local = adicionar_na_fila(dados, foto_bytes, foto_nome_original, foto_mimetype)
+        flash(
+            f"Sem internet no momento — o cadastro foi salvo aqui no "
+            f"computador (pendência #{id_local}) e será enviado "
+            f"automaticamente quando você sincronizar.",
+            "aviso",
         )
-        flash("Produtor cadastrado com sucesso.", "success")
-    else:
-        set_clause = ", ".join([f"{f} = ?" for f in FIELDS])
-        conn.execute(
-            f"UPDATE produtores SET {set_clause}, atualizado_em = now() WHERE id = ?",
-            [dados[f] for f in FIELDS] + [pid],
+        return True, dados
+
+
+@app.route("/fila")
+def fila():
+    pendentes = listar_pendentes()
+    return render_template("fila.html", pendentes=pendentes)
+
+
+@app.route("/sincronizar", methods=["POST"])
+def sincronizar():
+    pendentes = listar_pendentes()
+    sucesso = 0
+    falha = 0
+    for item in pendentes:
+        try:
+            foto_url = ""
+            if item.get("foto_local_arquivo"):
+                caminho = FILA_FOTOS_DIR / item["foto_local_arquivo"]
+                if caminho.exists():
+                    foto_url = enviar_bytes(
+                        caminho.read_bytes(), item["foto_local_arquivo"], ""
+                    )
+
+            dados = {f: (item.get(f) or "") for f in FIELDS if f != "foto_produtor"}
+            dados["foto_produtor"] = foto_url
+
+            conn = get_connection()
+            cols = ", ".join(FIELDS)
+            placeholders = ", ".join(["?"] * len(FIELDS))
+            conn.execute(
+                f"INSERT INTO produtores ({cols}) VALUES ({placeholders})",
+                [dados[f] for f in FIELDS],
+            )
+            conn.commit()
+            conn.close()
+            remover_da_fila(item["id_local"])
+            sucesso += 1
+        except Exception:
+            falha += 1
+
+    if sucesso:
+        flash(f"{sucesso} cadastro(s) sincronizado(s) com sucesso!", "success")
+    if falha:
+        flash(
+            f"{falha} cadastro(s) ainda não puderam ser enviados (sem "
+            f"internet?). Eles continuam guardados aqui, tente de novo mais tarde.",
+            "error",
         )
-        flash("Cadastro atualizado com sucesso.", "success")
-    conn.commit()
-    conn.close()
-    return True, dados
+    if not sucesso and not falha:
+        flash("Não há cadastros pendentes para sincronizar.", "success")
+    return redirect(url_for("fila"))
+
+
+@app.route("/fila/excluir/<int:id_local>", methods=["POST"])
+def excluir_pendente(id_local):
+    remover_da_fila(id_local)
+    flash("Pendência removida da fila.", "success")
+    return redirect(url_for("fila"))
 
 
 @app.route("/excluir/<int:pid>", methods=["POST"])

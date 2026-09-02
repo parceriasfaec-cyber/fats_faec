@@ -34,30 +34,27 @@ def configurado() -> bool:
     return bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 
 
-def enviar_foto(arquivo) -> str:
-    """Recebe o arquivo enviado pelo formulario (Flask FileStorage) e
-    devolve a URL publica dele no Supabase Storage."""
+def enviar_bytes(conteudo: bytes, nome_original: str, mimetype: str = "") -> str:
+    """Envia os bytes de uma foto (ja lida em memoria) para o Supabase
+    Storage e devolve a URL publica dela. Usado tanto para uploads normais
+    quanto para sincronizar fotos que ficaram na fila offline."""
     if not configurado():
         raise RuntimeError(
             "SUPABASE_URL e SUPABASE_SERVICE_KEY nao estao configurados. "
             "Preencha essas variaveis no .env (veja o topo deste arquivo)."
         )
 
-    nome_original = arquivo.filename or ""
-    ext = os.path.splitext(nome_original)[1].lower()
+    ext = os.path.splitext(nome_original or "")[1].lower()
     if ext not in EXTENSOES_PERMITIDAS:
         ext = ".jpg"
     nome_arquivo = f"{uuid.uuid4().hex}{ext}"
-
-    conteudo = arquivo.read()
-    mimetype = arquivo.mimetype or "application/octet-stream"
 
     resp = requests.post(
         f"{SUPABASE_URL}/storage/v1/object/{BUCKET}/{nome_arquivo}",
         headers={
             "apikey": SUPABASE_SERVICE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-            "Content-Type": mimetype,
+            "Content-Type": mimetype or "application/octet-stream",
         },
         data=conteudo,
         timeout=30,
@@ -65,3 +62,9 @@ def enviar_foto(arquivo) -> str:
     resp.raise_for_status()
 
     return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{nome_arquivo}"
+
+
+def enviar_foto(arquivo) -> str:
+    """Recebe o arquivo enviado pelo formulario (Flask FileStorage) e
+    devolve a URL publica dele no Supabase Storage."""
+    return enviar_bytes(arquivo.read(), arquivo.filename or "", arquivo.mimetype or "")

@@ -51,6 +51,11 @@
     color: #b23b3b;
     border: 1px solid #b23b3b;
   }
+  .flash.aviso {
+    background: #fff4e0;
+    color: #9a6300;
+    border: 1px solid #f0b429;
+  }
   .btn {
     display: inline-block;
     padding: 8px 16px;
@@ -126,6 +131,12 @@
   <p>Programa Matrizes do Amanhã &amp; Interface FIV Ceará — FAEC / SENAR-CE</p>
 </header>
 <main>
+  {% if qtd_pendentes_offline %}
+    <div class="flash aviso" style="max-width:900px;margin:16px auto 0;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+      <span>⏳ {{ qtd_pendentes_offline }} cadastro{{ 's' if qtd_pendentes_offline != 1 else '' }} feito{{ 's' if qtd_pendentes_offline != 1 else '' }} sem internet, aguardando envio.</span>
+      <a href="{{ url_for('fila') }}" class="btn btn-primary btn-sm" style="white-space:nowrap;">Ver e sincronizar</a>
+    </div>
+  {% endif %}
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       {% for category, msg in messages %}

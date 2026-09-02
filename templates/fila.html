@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Fila Offline - FATS{% endblock %}
+{% block content %}
+
+<div class="toolbar">
+  <h2 style="margin:0; color: var(--verde);">Cadastros aguardando envio</h2>
+  <a href="{{ url_for('index') }}" class="btn btn-secondary">← Voltar para a lista</a>
+</div>
+
+<div class="card">
+  <p style="color:var(--cinza); font-size:0.9rem;">
+    Esses cadastros foram feitos enquanto o computador estava sem internet.
+    Eles ficam guardados aqui, neste computador, até você clicar em
+    "Sincronizar agora" com a internet disponível.
+  </p>
+
+  {% if pendentes %}
+  <form method="post" action="{{ url_for('sincronizar') }}" style="margin-bottom:16px;">
+    <button type="submit" class="btn btn-primary">🔄 Sincronizar agora ({{ pendentes|length }})</button>
+  </form>
+
+  <table class="list">
+    <thead>
+      <tr>
+        <th class="col-principal">Nome do Produtor</th>
+        <th>Município</th>
+        <th>Salvo em</th>
+        <th>Foto</th>
+        <th class="actions">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in pendentes %}
+      <tr>
+        <td class="col-principal">{{ (p.nome_produtor or '-')|upper }}</td>
+        <td>{{ (p.municipio or '-')|upper }}</td>
+        <td>{{ p.criado_em_local }}</td>
+        <td>{{ '📷 sim' if p.foto_local_arquivo else '-' }}</td>
+        <td class="actions">
+          <form method="post" action="{{ url_for('excluir_pendente', id_local=p.id_local) }}" onsubmit="return confirm('Excluir este cadastro pendente? Ele não será enviado.');" style="display:inline;">
+            <button type="submit" class="btn btn-secondary btn-sm">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="empty">✅ Nenhum cadastro pendente. Tudo sincronizado!</div>
+  {% endif %}
+</div>
+
+{% endblock %}
