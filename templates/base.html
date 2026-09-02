@@ -118,6 +118,7 @@
   .btn-danger-ghost:hover { background: var(--erro-bg); }
   .btn-sm { padding: 5px 10px; font-size: 0.8rem; }
   table.list { width: 100%; border-collapse: collapse; }
+  .tabela-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table.list th, table.list td {
     text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--borda); font-size: 0.95rem;
   }
@@ -174,7 +175,10 @@
   @media (max-width: 640px) {
     .grid { grid-template-columns: 1fr; }
     .ficha-grid { grid-template-columns: 1fr; }
-    table.list { font-size: 0.8rem; }
+    table.list { font-size: 0.8rem; min-width: 720px; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar form { width: 100%; }
+    .toolbar input[type=search] { width: 100% !important; }
   }
 </style>
 </head>

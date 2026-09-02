@@ -19,6 +19,7 @@
     <button type="submit" class="btn btn-primary">🔄 Sincronizar agora ({{ pendentes|length }})</button>
   </form>
 
+  <div class="tabela-scroll">
   <table class="list">
     <thead>
       <tr>
@@ -45,6 +46,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
     <div class="empty">✅ Nenhum cadastro pendente. Tudo sincronizado!</div>
   {% endif %}

@@ -28,6 +28,7 @@
   <div class="section-title">Produtores com ficha incompleta</div>
 
   {% if incompletos %}
+  <div class="tabela-scroll">
   <table class="list">
     <thead>
       <tr>
@@ -62,6 +63,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
     <div class="empty">
       {% if total %}

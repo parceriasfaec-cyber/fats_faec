@@ -14,6 +14,7 @@
   </div>
 
   {% if produtores %}
+  <div class="tabela-scroll">
   <table class="list">
     <thead>
       <tr>
@@ -60,6 +61,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
     <div class="empty">
       {% if busca %}
