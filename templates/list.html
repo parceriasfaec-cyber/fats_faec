@@ -53,7 +53,7 @@
           <a class="btn btn-secondary btn-sm" href="{{ url_for('pdf', pid=p['id']) }}" target="_blank">Ver PDF</a>
           <form method="post" action="{{ url_for('excluir', pid=p['id']) }}"
                 onsubmit="return confirm('Excluir o cadastro de {{ p['nome_produtor'] or 'este produtor' }}?');">
-            <button class="btn btn-danger btn-sm" type="submit">Excluir</button>
+            <button class="btn btn-danger-ghost btn-sm" type="submit">Excluir</button>
           </form>
         </td>
       </tr>

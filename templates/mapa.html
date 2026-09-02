@@ -41,8 +41,17 @@
 <script>
   const pontos = {{ pontos_json | safe }};
 
-  // Centro aproximado do estado do Ceara
-  const mapa = L.map('mapa-ceara').setView([-5.2, -39.3], 7);
+  // Contorno aproximado do estado do Ceara (sudoeste, nordeste)
+  const CEARA_BOUNDS = L.latLngBounds([-7.9, -41.4], [-2.7, -37.0]);
+
+  const mapa = L.map('mapa-ceara', {
+    maxBounds: CEARA_BOUNDS.pad(0.4),
+    maxBoundsViscosity: 0.6,
+    minZoom: 6,
+  });
+
+  // Vista padrao: o estado do Ceara inteiro (nunca mostra o Nordeste todo)
+  mapa.fitBounds(CEARA_BOUNDS);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
@@ -69,12 +78,12 @@
     marcadores.push(marcador);
   });
 
-  // Ajusta o zoom automaticamente para enquadrar todos os pinos
-  if (marcadores.length > 1) {
-    const grupo = L.featureGroup(marcadores);
-    mapa.fitBounds(grupo.getBounds().pad(0.2));
-  } else if (marcadores.length === 1) {
+  // Enquadra os pinos, mas sem zoom exagerado nem sair do estado do Ceara
+  if (marcadores.length === 1) {
     mapa.setView([pontos[0].lat, pontos[0].lon], 12);
+  } else if (marcadores.length > 1) {
+    const grupo = L.featureGroup(marcadores);
+    mapa.fitBounds(grupo.getBounds().pad(0.25), { maxZoom: 11 });
   }
 </script>
 {% endif %}
