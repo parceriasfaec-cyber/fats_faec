@@ -7,6 +7,7 @@
       <input type="search" name="q" placeholder="Buscar por nome, CPF, propriedade ou município" value="{{ busca }}" style="width:320px;">
       <button class="btn btn-secondary" type="submit">Buscar</button>
     </form>
+    <a href="{{ url_for('mapa') }}" class="btn btn-secondary">🗺️ Mapa</a>
     <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">📊 Dashboard</a>
     <a href="{{ url_for('exportar_excel', q=busca) }}" class="btn btn-secondary">⬇ Exportar Excel</a>
     <a href="{{ url_for('novo') }}" class="btn btn-primary">+ Novo Produtor</a>

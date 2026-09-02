@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import re
 import sys
@@ -183,6 +184,55 @@ def _campos_faltando(produtor) -> list:
         if not str(valor).strip():
             faltando.append(f)
     return faltando
+
+
+def _parse_coordenada(valor: str):
+    """Converte texto de latitude/longitude (que pode vir com virgula ou
+    ponto) para float. Devolve None se nao for um numero valido."""
+    valor = (valor or "").strip().replace(",", ".")
+    if not valor:
+        return None
+    try:
+        return float(valor)
+    except ValueError:
+        return None
+
+
+@app.route("/mapa")
+def mapa():
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM produtores ORDER BY nome_produtor"
+    ).fetchall()
+    conn.close()
+
+    pontos = []
+    sem_coordenadas = 0
+    for row in rows:
+        produtor = dict(row)
+        lat = _parse_coordenada(produtor.get("latitude"))
+        lon = _parse_coordenada(produtor.get("longitude"))
+        if lat is None or lon is None:
+            sem_coordenadas += 1
+            continue
+        pontos.append({
+            "id": produtor["id"],
+            "nome_produtor": produtor.get("nome_produtor") or "-",
+            "nome_propriedade": produtor.get("nome_propriedade") or "-",
+            "municipio": produtor.get("municipio") or "-",
+            "tecnico_responsavel": produtor.get("tecnico_responsavel") or "-",
+            "lat": lat,
+            "lon": lon,
+        })
+
+    return render_template(
+        "mapa.html",
+        pontos=pontos,
+        pontos_json=json.dumps(pontos, ensure_ascii=False),
+        total=len(rows),
+        qtd_no_mapa=len(pontos),
+        sem_coordenadas=sem_coordenadas,
+    )
 
 
 @app.route("/dashboard")
