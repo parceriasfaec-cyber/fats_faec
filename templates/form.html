@@ -74,7 +74,7 @@
     <div><label>Vacas Secas</label><input type="text" name="vacas_secas" class="only-digits" inputmode="numeric" value="{{ val('vacas_secas') }}"></div>
     <div><label>Novilhas/Bezerras</label><input type="text" name="novilhas" class="only-digits" inputmode="numeric" value="{{ val('novilhas') }}"></div>
     <div><label>Touros/Garrotes</label><input type="text" name="touros" class="only-digits" inputmode="numeric" value="{{ val('touros') }}"></div>
-    <div><label>Produtividade Média (L/vaca/dia) — calculado automaticamente</label><input type="text" id="produtividade_media" name="produtividade_media" class="decimal-digits" inputmode="decimal" value="{{ val('produtividade_media') }}" readonly style="background:#f2f2f2;"></div>
+    <div><label>Produtividade Média (L/vaca/dia) — calculado automaticamente</label><input type="text" id="produtividade_media" name="produtividade_media" class="decimal-digits" inputmode="decimal" value="{{ val('produtividade_media') }}" readonly style="background:var(--fundo);"></div>
     <div><label>Destino da Produção</label>{{ sel('destino_producao', ['Laticínio / Formal', 'Queijaria / Informal', 'Cooperativa']) }}</div>
     <div><label>Composição Genética</label>{{ sel('composicao_genetica', ['Girolando', 'Zebuíno Leiteiro (Gir/Guzerá/Sindi)', 'Misto / Sem Padrão']) }}</div>
     <div><label>Grau Girolando Predominante</label><input type="text" name="grau_girolando" value="{{ val('grau_girolando') }}"></div>

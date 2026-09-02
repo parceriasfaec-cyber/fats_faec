@@ -3,23 +3,23 @@
 {% block content %}
 
 <div class="toolbar">
-  <h2 style="margin:0; color: var(--verde);">Dashboard</h2>
+  <h2 style="margin:0; color: var(--verde-escuro);">Dashboard</h2>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">← Voltar para a lista</a>
 </div>
 
 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
-  <div class="card" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.8rem; color:var(--cinza); text-transform:uppercase;">Total de Produtores</div>
-    <div style="font-size:2.4rem; font-weight:700; color:var(--verde);">{{ total }}</div>
+  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Total de Produtores</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.6rem; font-weight:700; color:var(--verde-escuro);">{{ total }}</div>
   </div>
-  <div class="card" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.8rem; color:var(--cinza); text-transform:uppercase;">Fichas Completas</div>
-    <div style="font-size:2.4rem; font-weight:700; color:#2f7d3b;">{{ qtd_completos }}</div>
+  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Fichas Completas</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.6rem; font-weight:700; color:var(--verde);">{{ qtd_completos }}</div>
     <div style="font-size:0.8rem; color:var(--cinza);">{{ pct_completos }}% do total</div>
   </div>
-  <div class="card" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.8rem; color:var(--cinza); text-transform:uppercase;">Fichas Incompletas</div>
-    <div style="font-size:2.4rem; font-weight:700; color:#b23b3b;">{{ qtd_incompletos }}</div>
+  <div class="card card-stat acento-erro" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Fichas Incompletas</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.6rem; font-weight:700; color:var(--erro);">{{ qtd_incompletos }}</div>
     <div style="font-size:0.8rem; color:var(--cinza);">{{ 100 - pct_completos }}% do total</div>
   </div>
 </div>
@@ -45,7 +45,7 @@
         <td>{{ (p.municipio or '-')|upper }}</td>
         <td>{{ (p.tecnico_responsavel or '-')|upper }}</td>
         <td class="nowrap">
-          <span class="btn btn-sm" style="background:#fce8e8; color:#b23b3b; cursor:default;">
+          <span class="btn btn-sm" style="background:var(--erro-bg); color:var(--erro); cursor:default;">
             {{ p.qtd_faltando }} pendente{{ 's' if p.qtd_faltando != 1 else '' }}
           </span>
         </td>

@@ -3,22 +3,22 @@
 {% block content %}
 
 <div class="toolbar">
-  <h2 style="margin:0; color: var(--verde);">Mapa das Propriedades</h2>
+  <h2 style="margin:0; color: var(--verde-escuro);">Mapa das Propriedades</h2>
   <a href="{{ url_for('index') }}" class="btn btn-secondary">← Voltar para a lista</a>
 </div>
 
 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
-  <div class="card" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.8rem; color:var(--cinza); text-transform:uppercase;">Total de Produtores</div>
-    <div style="font-size:2rem; font-weight:700; color:var(--verde);">{{ total }}</div>
+  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Total de Produtores</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde-escuro);">{{ total }}</div>
   </div>
-  <div class="card" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.8rem; color:var(--cinza); text-transform:uppercase;">No Mapa (com coordenadas)</div>
-    <div style="font-size:2rem; font-weight:700; color:#2f7d3b;">{{ qtd_no_mapa }}</div>
+  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">No Mapa (com coordenadas)</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde);">{{ qtd_no_mapa }}</div>
   </div>
-  <div class="card" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.8rem; color:var(--cinza); text-transform:uppercase;">Sem Coordenadas</div>
-    <div style="font-size:2rem; font-weight:700; color:#b23b3b;">{{ sem_coordenadas }}</div>
+  <div class="card card-stat acento-erro" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Sem Coordenadas</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--erro);">{{ sem_coordenadas }}</div>
   </div>
 </div>
 
@@ -60,11 +60,11 @@
   pontos.forEach(function (p) {
     const marcador = L.marker([p.lat, p.lon], { icon: iconeVerde }).addTo(mapa);
     marcador.bindPopup(
-      '<strong>' + p.nome_produtor + '</strong><br>' +
+      '<strong style="font-family:\'Fraunces\',serif;">' + p.nome_produtor + '</strong><br>' +
       p.nome_propriedade + '<br>' +
       p.municipio + '<br>' +
       '<span style="color:#777;font-size:0.85em;">Técnico: ' + p.tecnico_responsavel + '</span><br>' +
-      '<a href="/ficha/' + p.id + '" target="_blank">Ver ficha completa →</a>'
+      '<a href="/ficha/' + p.id + '" target="_blank" style="color:#a8571e;">Ver ficha completa</a>'
     );
     marcadores.push(marcador);
   });
