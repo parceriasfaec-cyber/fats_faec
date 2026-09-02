@@ -5,11 +5,11 @@
   <div class="toolbar">
     <form method="get" style="display:flex; gap:8px;">
       <input type="search" name="q" placeholder="Buscar por nome, CPF, propriedade ou município" value="{{ busca }}" style="width:320px;">
-      <button class="btn btn-secondary" type="submit">Buscar</button>
+      <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
     </form>
-    <a href="{{ url_for('mapa') }}" class="btn btn-secondary">🗺️ Mapa</a>
-    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">📊 Dashboard</a>
-    <a href="{{ url_for('exportar_excel', q=busca) }}" class="btn btn-secondary">⬇ Exportar Excel</a>
+    <a href="{{ url_for('mapa') }}" class="btn btn-ghost">🗺️ Mapa</a>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">📊 Dashboard</a>
+    <a href="{{ url_for('exportar_excel', q=busca) }}" class="btn btn-ghost">⬇ Exportar Excel</a>
     <a href="{{ url_for('novo') }}" class="btn btn-primary">+ Novo Produtor</a>
   </div>
 
@@ -48,12 +48,12 @@
         <td>{{ p['assistido_ateg'] or '-' }}</td>
         <td>{{ (p['tecnico_responsavel'] or '-')|upper }}</td>
         <td class="actions">
-          <a class="btn btn-secondary btn-sm" href="{{ url_for('ficha', pid=p['id']) }}">Ver</a>
-          <a class="btn btn-secondary btn-sm" href="{{ url_for('editar', pid=p['id']) }}">Editar</a>
-          <a class="btn btn-secondary btn-sm" href="{{ url_for('pdf', pid=p['id']) }}" target="_blank">Ver PDF</a>
+          <a class="btn btn-ghost btn-sm" href="{{ url_for('ficha', pid=p['id']) }}">👁 Ver</a>
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('editar', pid=p['id']) }}">✏️ Editar</a>
+          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('pdf', pid=p['id']) }}" target="_blank">📄 PDF</a>
           <form method="post" action="{{ url_for('excluir', pid=p['id']) }}"
                 onsubmit="return confirm('Excluir o cadastro de {{ p['nome_produtor'] or 'este produtor' }}?');">
-            <button class="btn btn-danger-ghost btn-sm" type="submit">Excluir</button>
+            <button class="btn btn-danger-ghost btn-sm" type="submit">🗑 Excluir</button>
           </form>
         </td>
       </tr>
