@@ -4,6 +4,8 @@ import os
 import re
 import sys
 import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 import psycopg2
@@ -74,6 +76,18 @@ def _formatar_cpf(valor: str) -> str:
     if len(digitos) <= 9:
         return f"{digitos[0:3]}.{digitos[3:6]}.{digitos[6:]}"
     return f"{digitos[0:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}"
+
+
+def _formatar_cpf_ou_registro(valor: str) -> str:
+    """Igual a _formatar_cpf, mas pro campo que aceita CPF OU registro
+    profissional (que pode ter mais de 11 dígitos, ou um formato
+    diferente). Se tiver até 11 dígitos, formata como CPF; se passar
+    disso, mostra o valor exatamente como foi salvo (sem cortar nem
+    forçar pontuação de CPF num número que não é CPF)."""
+    digitos = re.sub(r"\D", "", valor or "")
+    if not digitos or len(digitos) > 11:
+        return valor or ""
+    return _formatar_cpf(digitos)
 
 
 def _formatar_telefone(valor: str) -> str:
@@ -148,6 +162,7 @@ app = Flask(
 )
 app.secret_key = os.environ.get("SECRET_KEY", "troque-esta-chave-em-producao")
 app.jinja_env.filters["mascara_cpf"] = _formatar_cpf
+app.jinja_env.filters["mascara_cpf_ou_registro"] = _formatar_cpf_ou_registro
 app.jinja_env.filters["mascara_telefone"] = _formatar_telefone
 
 
@@ -548,6 +563,24 @@ def pdf(pid):
     )
 
 
+FUSO_BRASIL = ZoneInfo("America/Fortaleza")  # UTC-3, sem horário de verão
+
+
+def _hora_brasil(valor):
+    """Converte um datetime do banco (vem com fuso, geralmente UTC) pro
+    horário do Brasil (América/Fortaleza) — e só DEPOIS remove o tzinfo,
+    porque o Excel (openpyxl) não aceita datetime com fuso horário (dá
+    TypeError na hora de salvar). Se o valor já vier sem fuso (naive),
+    assume que já está em UTC (é o padrão do Postgres) antes de converter
+    — sem isso, a hora ficaria errada (3h adiantada) em vez de simplesmente
+    dar erro."""
+    if not isinstance(valor, datetime):
+        return valor
+    if valor.tzinfo is None:
+        valor = valor.replace(tzinfo=ZoneInfo("UTC"))
+    return valor.astimezone(FUSO_BRASIL).replace(tzinfo=None)
+
+
 @app.route("/exportar-excel")
 def exportar_excel():
     busca = request.args.get("q", "").strip()
@@ -594,10 +627,12 @@ def exportar_excel():
                 v = _exibir_data(v)
             elif f == "cpf":
                 v = _formatar_cpf(v)
+            elif f == "cpf_tecnico":
+                v = _formatar_cpf_ou_registro(v)
             elif f == "telefone":
                 v = _formatar_telefone(v)
             valores.append(v)
-        linha = [row["id"]] + valores + [row["criado_em"], row["atualizado_em"]]
+        linha = [row["id"]] + valores + [_hora_brasil(row["criado_em"]), _hora_brasil(row["atualizado_em"])]
         ws.append(linha)
 
     # Largura automatica (aproximada) das colunas

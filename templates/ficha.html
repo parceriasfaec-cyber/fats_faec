@@ -107,7 +107,7 @@
     <div class="full"><label>Projeto FIV Ceará</label><p>{{ v('parecer_fiv') }}</p></div>
     <div class="full"><label>Observações / Recomendações Prioritárias do Técnico</label><p>{{ v('observacoes_tecnico') }}</p></div>
     <div><label>Técnico Avaliador (Nome)</label><p>{{ (v('nome_tecnico'))|upper }}</p></div>
-    <div><label>CPF / Registro Profissional do Técnico</label><p>{{ v('cpf_tecnico') }}</p></div>
+    <div><label>CPF / Registro Profissional do Técnico</label><p>{{ v('cpf_tecnico')|mascara_cpf_ou_registro }}</p></div>
   </div>
 
   <div class="form-actions">

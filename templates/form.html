@@ -119,7 +119,7 @@
     <div><label>Projeto FIV Ceará</label>{{ sel('parecer_fiv', ['RECOMENDADO: Estrutura de contenção, nutrição e receptoras prontas.', 'EM PREPARAÇÃO: Requer ajuste do ECC e imunização prévia.', 'NÃO RECOMENDADO NO MOMENTO.']) }}</div>
     <div class="grid full"><label>Observações / Recomendações Prioritárias do Técnico</label><textarea name="observacoes_tecnico">{{ val('observacoes_tecnico') }}</textarea></div>
     <div><label>Técnico Avaliador (Nome)</label><input type="text" name="nome_tecnico" class="upper-input" style="text-transform:uppercase;" value="{{ val('nome_tecnico')|upper }}"></div>
-    <div><label>CPF / Registro Profissional do Técnico</label><input type="text" name="cpf_tecnico" class="only-digits" inputmode="numeric" value="{{ val('cpf_tecnico') }}"></div>
+    <div><label>CPF / Registro Profissional do Técnico</label><input type="text" name="cpf_tecnico" class="cpf-ou-registro-mask" inputmode="numeric" placeholder="000.000.000-00 ou nº de registro" value="{{ val('cpf_tecnico') }}"></div>
   </div>
 
   <div class="form-actions">
@@ -182,6 +182,27 @@
         v = v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6);
       } else if (v.length > 3) {
         v = v.slice(0, 3) + '.' + v.slice(3);
+      }
+      this.value = v;
+    });
+  });
+
+  // CPF ou Registro Profissional: o campo aceita as duas coisas, e um
+  // registro profissional pode ter mais (ou menos) de 11 digitos. Por
+  // isso, so aplica a mascara de CPF (000.000.000-00) enquanto tiver ate
+  // 11 digitos; passando disso, deixa os numeros livres (sem forcar
+  // pontuacao de CPF num numero de registro mais longo).
+  document.querySelectorAll('.cpf-ou-registro-mask').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var v = this.value.replace(/\D/g, '').slice(0, 20);
+      if (v.length <= 11) {
+        if (v.length > 9) {
+          v = v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6, 9) + '-' + v.slice(9);
+        } else if (v.length > 6) {
+          v = v.slice(0, 3) + '.' + v.slice(3, 6) + '.' + v.slice(6);
+        } else if (v.length > 3) {
+          v = v.slice(0, 3) + '.' + v.slice(3);
+        }
       }
       this.value = v;
     });
