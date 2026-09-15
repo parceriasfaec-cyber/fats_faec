@@ -143,3 +143,28 @@ def enviar_foto(arquivo) -> str:
     """Recebe o arquivo enviado pelo formulario (Flask FileStorage) e
     devolve a URL publica dele no Supabase Storage."""
     return enviar_bytes(arquivo.read(), arquivo.filename or "", arquivo.mimetype or "")
+
+
+def excluir_arquivo(url: str) -> None:
+    """Apaga do Supabase Storage o arquivo referenciado por uma URL publica
+    gerada por enviar_bytes()/enviar_foto(). Nao faz nada (silenciosamente)
+    se o Supabase nao estiver configurado ou se a URL nao for reconhecida —
+    o objetivo e so liberar espaco na cota quando der, nunca travar o app
+    por causa disso."""
+    if not configurado() or not url:
+        return
+    prefixo = f"{SUPABASE_URL}/storage/v1/object/public/"
+    if not url.startswith(prefixo):
+        return
+    caminho = url[len(prefixo):]  # "<bucket>/<arquivo>"
+    try:
+        requests.delete(
+            f"{SUPABASE_URL}/storage/v1/object/{caminho}",
+            headers={
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            },
+            timeout=15,
+        )
+    except requests.RequestException:
+        pass

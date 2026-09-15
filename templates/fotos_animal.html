@@ -36,6 +36,12 @@
         <p style="font-size:0.75rem; color:var(--cinza); margin:4px 0 0;">
           {% if animal[campo] %}Escolha um arquivo para substituir esta foto.{% else %}Escolha um arquivo para adicionar esta foto.{% endif %}
         </p>
+        {% if animal[campo] %}
+        <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:0.82rem; color:var(--erro); cursor:pointer;">
+          <input type="checkbox" name="remover_{{ campo }}" value="1" style="width:auto; margin:0;">
+          🗑 Remover esta foto
+        </label>
+        {% endif %}
       </div>
       {% endfor %}
 

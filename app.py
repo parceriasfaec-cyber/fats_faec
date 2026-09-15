@@ -19,7 +19,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 from database import get_connection, init_db, _base_dir
 from pdf_generator import generate_pdf
-from supabase_storage import enviar_bytes, BUCKET_ANIMAIS
+from supabase_storage import enviar_bytes, excluir_arquivo, BUCKET_ANIMAIS
 from campos import FIELDS, FIELD_LABELS, MUNICIPIOS_CEARA
 from fila_offline import (
     adicionar_na_fila, listar_pendentes, contar_pendentes, remover_da_fila,
@@ -348,6 +348,7 @@ def index():
     # a busca/filtro atual (não só os da página exibida na tabela).
     total_filtrado = len(todos)
     qtd_assistidos_ateg = sum(1 for p in todos if (p["assistido_ateg"] or "") == "Sim")
+    pct_assistidos_ateg = round(qtd_assistidos_ateg / total_filtrado * 100) if total_filtrado else 0
     qtd_em_meta = sum(1 for p in todos if p["qtd_animais"] >= LIMITE_ANIMAIS_POR_PRODUTOR)
     pct_em_meta = round(qtd_em_meta / total_filtrado * 100) if total_filtrado else 0
     qtd_sem_foto = sum(1 for p in todos if not p["foto_produtor"])
@@ -373,7 +374,7 @@ def index():
         municipios_disponiveis=municipios_disponiveis,
         pagina=pagina, total_paginas=total_paginas, total_filtrado=total_filtrado,
         por_pagina=POR_PAGINA, inicio_pagina=inicio,
-        qtd_assistidos_ateg=qtd_assistidos_ateg, pct_em_meta=pct_em_meta,
+        qtd_assistidos_ateg=qtd_assistidos_ateg, pct_assistidos_ateg=pct_assistidos_ateg, pct_em_meta=pct_em_meta,
         qtd_sem_foto=qtd_sem_foto,
     )
 
@@ -713,17 +714,24 @@ def fotos_animal(aid):
 
     if request.method == "POST":
         novas_urls = {}
+        urls_para_excluir = []
         for campo in ("foto_1", "foto_2", "foto_3"):
             arquivo = request.files.get(campo)
+            remover = request.form.get(f"remover_{campo}") == "1"
             if arquivo and arquivo.filename:
                 try:
                     url = enviar_bytes(
                         arquivo.read(), arquivo.filename, arquivo.mimetype or "",
                         bucket=BUCKET_ANIMAIS,
                     )
+                    if animal[campo]:
+                        urls_para_excluir.append(animal[campo])
                     novas_urls[campo] = url
                 except Exception as e:
                     flash(f"Erro ao enviar a foto ({campo}): {e}", "error")
+            elif remover and animal[campo]:
+                urls_para_excluir.append(animal[campo])
+                novas_urls[campo] = None
 
         if novas_urls:
             set_clause = ", ".join(f"{c} = ?" for c in novas_urls)
@@ -732,6 +740,8 @@ def fotos_animal(aid):
                 list(novas_urls.values()) + [aid],
             )
             conn.commit()
+            for url in urls_para_excluir:
+                excluir_arquivo(url)
             flash("Foto(s) do animal atualizada(s) com sucesso.", "success")
         conn.close()
         return redirect(url_for("fotos_animal", aid=aid))

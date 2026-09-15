@@ -18,6 +18,7 @@
   <div class="stat-mini">
     <div class="rotulo">Assistidos ATEG</div>
     <div class="valor">{{ qtd_assistidos_ateg }}</div>
+    <div style="font-size:0.8rem; color:var(--cinza);">{{ pct_assistidos_ateg }}% do total</div>
   </div>
   <div class="stat-mini">
     <div class="rotulo">Animais em Meta</div>
@@ -96,13 +97,13 @@
             <span class="fracao">{{ p['qtd_animais'] }}/{{ limite_animais }}</span>
           </div>
         </td>
-        <td>
+        <td class="nowrap" style="text-align:center;">
           {% if p['assistido_ateg'] == 'Sim' %}
-            <span class="badge-ateg sim">Sim</span>
+            <span class="icone-ateg sim" title="Assistido ATEG">✓</span>
           {% elif p['assistido_ateg'] == 'Não' %}
-            <span class="badge-ateg nao">Não</span>
+            <span class="icone-ateg nao" title="Não assistido ATEG">✕</span>
           {% else %}
-            <span class="badge-ateg nao">-</span>
+            <span class="icone-ateg vazio" title="Não informado">-</span>
           {% endif %}
         </td>
         <td class="actions">

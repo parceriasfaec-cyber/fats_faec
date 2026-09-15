@@ -322,12 +322,14 @@
   .progresso-animais.parcial .barra span { background: var(--aviso); }
   .progresso-animais .fracao { font-size: 0.78rem; color: var(--cinza); white-space: nowrap; }
 
-  .badge-ateg {
-    display: inline-block; padding: 3px 10px; border-radius: 12px;
-    font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+  .icone-ateg {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%;
+    font-size: 0.85rem; font-weight: 700;
   }
-  .badge-ateg.sim { background: var(--verde-claro); color: var(--verde-escuro); border: 1px solid var(--verde); }
-  .badge-ateg.nao { background: #ece7d9; color: var(--cinza); border: 1px solid var(--borda); }
+  .icone-ateg.sim { background: var(--verde-claro); color: var(--verde-escuro); border: 1px solid var(--verde); }
+  .icone-ateg.nao { background: var(--erro-bg); color: var(--erro); border: 1px solid var(--erro); }
+  .icone-ateg.vazio { background: #ece7d9; color: var(--cinza); border: 1px solid var(--borda); }
 
   .paginacao {
     display: flex; justify-content: space-between; align-items: center;
