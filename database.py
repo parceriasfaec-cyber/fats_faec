@@ -123,6 +123,33 @@ CREATE TABLE IF NOT EXISTS "FIV".produtores (
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT now(),
     atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
+-- Cadastro dos animais (receptoras) do lote FIV. Cada animal e cadastrado
+-- primeiro (com suas fotos), e so depois e vinculado a um produtor (quando
+-- o sorteio/distribuicao entre produtores for feito).
+CREATE TABLE IF NOT EXISTS "FIV".animais (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    brinco_faec TEXT,      -- numero sequencial do brinco FAEC (ex: "0001")
+    brinco_fazenda TEXT,   -- identificacao do brinco na fazenda (ex: "V 1452")
+
+    foto_1 TEXT,
+    foto_2 TEXT,
+    foto_3 TEXT,
+
+    -- Preenchido depois, quando o animal for sorteado/atribuido a um
+    -- produtor. Fica NULL ate la.
+    produtor_id BIGINT REFERENCES "FIV".produtores(id) ON DELETE SET NULL,
+
+    -- "disponivel" (ainda sem produtor) ou "alocado" (ja distribuido)
+    status TEXT NOT NULL DEFAULT 'disponivel',
+
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_animais_produtor ON "FIV".animais(produtor_id);
+CREATE INDEX IF NOT EXISTS idx_animais_status ON "FIV".animais(status);
 """
 
 

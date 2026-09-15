@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Animais - FATS{% endblock %}
+{% block content %}
+<div class="grid" style="grid-template-columns: repeat(3, 1fr); gap:16px; margin-bottom:16px;">
+  <div class="card card-stat">
+    <div style="font-size:0.8rem; color:var(--cinza);">Total de animais</div>
+    <div style="font-size:1.8rem; font-weight:600;">{{ total }}</div>
+  </div>
+  <div class="card card-stat">
+    <div style="font-size:0.8rem; color:var(--cinza);">Disponíveis</div>
+    <div style="font-size:1.8rem; font-weight:600;">{{ disponiveis }}</div>
+  </div>
+  <div class="card card-stat acento-terra">
+    <div style="font-size:0.8rem; color:var(--cinza);">Já alocados</div>
+    <div style="font-size:1.8rem; font-weight:600;">{{ alocados }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="toolbar">
+    <form method="get" style="display:flex; gap:8px;">
+      <input type="search" name="q" placeholder="Buscar por brinco ou produtor" value="{{ busca }}" style="width:320px;">
+      <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
+    </form>
+    <a href="{{ url_for('index') }}" class="btn btn-ghost">👥 Produtores</a>
+  </div>
+
+  {% if animais %}
+  <div class="tabela-scroll">
+  <table class="list">
+    <thead>
+      <tr>
+        <th class="col-principal nowrap">Foto</th>
+        <th class="col-principal nowrap">Brinco FAEC</th>
+        <th class="col-principal">Brinco Fazenda</th>
+        <th>Status</th>
+        <th class="col-principal">Produtor</th>
+        <th class="actions">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in animais %}
+      <tr>
+        <td class="nowrap">
+          {% if a['foto_1'] %}
+          <a href="{{ foto_url(a['foto_1']) }}" target="_blank">
+            <img class="foto-thumb" src="{{ foto_url(a['foto_1']) }}" alt="Foto do animal {{ a['brinco_faec'] }}">
+          </a>
+          {% else %}
+          <span class="foto-thumb-placeholder">-</span>
+          {% endif %}
+        </td>
+        <td class="nowrap">{{ a['brinco_faec'] }}</td>
+        <td>{{ a['brinco_fazenda'] or '-' }}</td>
+        <td>
+          {% if a['status'] == 'alocado' %}
+            <span class="flash success" style="display:inline-block; padding:2px 8px; margin:0;">Alocado</span>
+          {% else %}
+            <span class="flash aviso" style="display:inline-block; padding:2px 8px; margin:0;">Disponível</span>
+          {% endif %}
+        </td>
+        <td class="col-principal">
+          {% if a['nome_produtor'] %}
+            <a class="link-produtor" href="{{ url_for('animais_produtor', pid=a['produtor_id']) }}">{{ a['nome_produtor']|upper }}</a>
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td class="actions">
+          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('fotos_animal', aid=a['id']) }}">📷 Fotos</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <div class="empty">
+      {% if busca %}
+        Nenhum animal encontrado para "{{ busca }}".
+      {% else %}
+        Nenhum animal cadastrado ainda.
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

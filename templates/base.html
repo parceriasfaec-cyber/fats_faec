@@ -6,63 +6,141 @@
 <title>{% block title %}FATS - Matrizes do Amanhã / FIV Ceará{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    /* Verde-pasto: cor institucional, ja usada pelo programa */
-    --verde: #2f5233;
-    --verde-escuro: #203a24;
-    --verde-claro: #e6ede1;
-    /* Terra: solo avermelhado do sertao cearense - o acento quente do sistema */
-    --terra: #a8571e;
-    --terra-claro: #f7e9dc;
-    /* Fundo com leve tom verde-acinzentado (capim seco), nao um bege generico */
-    --fundo: #eef1ea;
-    --tinta: #1e281f;
-    --cinza: #5c6b5d;
-    --borda: #d9dccf;
-    --erro: #9c3b2e;
-    --erro-bg: #f7e7e1;
-    --aviso: #a8571e;
-    --aviso-bg: #f7e9dc;
-    --fonte-titulo: "Fraunces", Georgia, serif;
+    /* Couro: marrom-couro escuro, a cor de identidade do sistema (cabecalho,
+       faixas de secao) - substitui o verde-pasto por algo mais "sertao/curral" */
+    --verde-escuro: #2b2015;
+    /* Caatinga: verde-oliva da vegetacao seca do sertao cearense */
+    --verde: #4e5c2e;
+    --verde-claro: #e7e6d3;
+    /* Barro: terra queimada do sertao - o acento quente do sistema */
+    --terra: #9a431b;
+    --terra-claro: #f1ddc8;
+    /* Pergaminho: papel de caderneta de campo, com leve textura */
+    --fundo: #efe6d2;
+    --tinta: #2a2018;
+    --cinza: #6a5f4c;
+    --borda: #dccdac;
+    --erro: #7c2e21;
+    --erro-bg: #f2ded6;
+    /* Dourado poeirento do sertao */
+    --aviso: #a15d12;
+    --aviso-bg: #f5e5c4;
+    --fonte-titulo: "Zilla Slab", Georgia, serif;
     --fonte-corpo: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
     font-family: var(--fonte-corpo);
-    background: var(--fundo);
+    background-color: var(--fundo);
+    background-image:
+      repeating-linear-gradient(115deg, rgba(42,32,24,0.025) 0px, rgba(42,32,24,0.025) 1px, transparent 1px, transparent 5px);
     margin: 0;
     color: var(--tinta);
     line-height: 1.5;
   }
   h1, h2, h3 { font-family: var(--fonte-titulo); font-weight: 600; letter-spacing: -0.01em; }
-  header {
+
+  /* ---- Layout geral: menu lateral fixo + conteúdo ---- */
+  .app-shell { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px;
+    flex-shrink: 0;
     background: var(--verde-escuro);
-    color: white;
-    padding: 20px 28px 18px;
-    border-bottom: 3px solid var(--terra);
+    color: #d9cdb5;
+    display: flex;
+    flex-direction: column;
+    border-right: 4px solid var(--terra);
+    box-shadow: inset -7px 0 0 -4px rgba(161,93,18,0.55);
   }
-  header h1 {
-    margin: 0;
-    font-size: 1.4rem;
+  .sidebar .marca {
+    display: flex; align-items: center; gap: 10px;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid rgba(217,205,181,0.15);
+  }
+  .sidebar .marca svg { flex-shrink: 0; }
+  .sidebar .marca-texto h1 {
+    margin: 0; font-size: 1rem; color: #fff; line-height: 1.25;
+  }
+  .sidebar .marca-texto p {
+    margin: 2px 0 0; font-size: 0.72rem; color: #b3a487;
+  }
+  .sidebar nav {
+    flex: 1;
+    padding: 14px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow-y: auto;
+  }
+  .sidebar nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    color: #d9cdb5;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-left: 3px solid transparent;
+  }
+  .sidebar nav a .icone { font-size: 1rem; width: 1.2em; text-align: center; flex-shrink: 0; }
+  .sidebar nav a:hover { background: rgba(217,205,181,0.08); color: #fff; }
+  .sidebar nav a.ativo {
+    background: rgba(217,205,181,0.12);
+    border-left-color: var(--terra);
+    color: #fff;
     font-weight: 600;
   }
-  header p {
-    margin: 4px 0 0;
-    font-size: 0.82rem;
-    color: #cdd9cb;
-    font-family: var(--fonte-corpo);
+  .sidebar nav a .contador {
+    margin-left: auto;
+    background: var(--terra);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
   }
+  .sidebar footer {
+    padding: 14px 20px 18px;
+    border-top: 1px solid rgba(217,205,181,0.15);
+    font-size: 0.68rem;
+    color: #8a7c60;
+    text-align: left;
+  }
+  .conteudo { flex: 1; min-width: 0; }
   main {
     max-width: 1280px;
-    margin: 24px auto;
-    padding: 0 16px 40px;
+    margin: 24px 0;
+    padding: 0 28px 40px;
+  }
+  @media (max-width: 900px) {
+    .app-shell { flex-direction: column; }
+    .sidebar {
+      width: 100%;
+      flex-direction: row;
+      align-items: center;
+      border-right: none;
+      border-bottom: 4px solid var(--terra);
+      box-shadow: inset 0 -7px 0 -4px rgba(161,93,18,0.55);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .sidebar .marca { border-bottom: none; padding: 10px 14px; }
+    .sidebar .marca-texto p { display: none; }
+    .sidebar nav {
+      flex-direction: row; padding: 6px 8px; gap: 2px;
+      overflow-x: auto; overflow-y: visible;
+    }
+    .sidebar nav a { white-space: nowrap; border-left: none; border-bottom: 3px solid transparent; }
+    .sidebar nav a.ativo { border-left-color: transparent; border-bottom-color: var(--terra); }
+    .sidebar footer { display: none; }
   }
   .card {
     background: #fff;
     border: 1px solid var(--borda);
-    border-radius: 6px;
+    border-radius: 3px;
     padding: 20px 24px;
     margin-bottom: 20px;
   }
@@ -73,7 +151,7 @@
   .card-stat.acento-erro { border-top-color: var(--erro); }
   .flash {
     padding: 11px 16px;
-    border-radius: 5px;
+    border-radius: 3px;
     margin-bottom: 16px;
     background: var(--verde-claro);
     color: var(--verde-escuro);
@@ -90,10 +168,33 @@
     color: var(--aviso);
     border: 1px solid var(--aviso);
   }
+  .badge-animais {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-animais.neutro {
+    background: #ece7d9;
+    color: var(--cinza);
+    border: 1px solid var(--borda);
+  }
+  .badge-animais.parcial {
+    background: var(--aviso-bg);
+    color: var(--aviso);
+    border: 1px solid var(--aviso);
+  }
+  .badge-animais.completo {
+    background: var(--verde-claro);
+    color: var(--verde-escuro);
+    border: 1px solid var(--verde);
+  }
   .btn {
     display: inline-block;
     padding: 8px 16px;
-    border-radius: 4px;
+    border-radius: 3px;
     text-decoration: none;
     font-size: 0.88rem;
     font-family: var(--fonte-corpo);
@@ -103,8 +204,8 @@
   }
   .btn-primary { background: var(--verde); color: white; }
   .btn-primary:hover { background: var(--verde-escuro); }
-  .btn-secondary { background: #e9e6da; color: var(--tinta); }
-  .btn-secondary:hover { background: #ddd9c8; }
+  .btn-secondary { background: #e7e1cf; color: var(--tinta); }
+  .btn-secondary:hover { background: #dbd3ba; }
   .btn-ghost { background: transparent; color: var(--verde-escuro); border: 1px solid var(--borda); }
   .btn-ghost:hover { background: var(--verde-claro); border-color: var(--verde); }
   .btn-outline-terra { background: transparent; color: var(--terra); border: 1px solid var(--terra); }
@@ -130,7 +231,7 @@
   .link-produtor:hover { text-decoration: underline; }
   .foto-preview { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
   .foto-preview img {
-    width: 110px; height: 110px; object-fit: cover; border-radius: 8px;
+    width: 110px; height: 110px; object-fit: cover; border-radius: 4px;
     border: 1px solid var(--borda); cursor: pointer;
   }
   .foto-hint { font-size: 0.8rem; color: var(--cinza); max-width: 260px; }
@@ -140,18 +241,18 @@
   }
   .foto-thumb-placeholder {
     width: 44px; height: 44px; border-radius: 50%; border: 1px dashed var(--borda);
-    display: flex; align-items: center; justify-content: center; color: #b4b8a9; font-size: 0.7rem;
+    display: flex; align-items: center; justify-content: center; color: #a89b7d; font-size: 0.7rem;
   }
-  .foto-ficha { width: 160px; height: 160px; object-fit: cover; border-radius: 8px; border: 1px solid var(--borda); cursor: pointer; }
+  .foto-ficha { width: 160px; height: 160px; object-fit: cover; border-radius: 4px; border: 1px solid var(--borda); cursor: pointer; }
   .actions { white-space: nowrap; }
   .actions form { display: inline; }
   input[type=text], input[type=search] {
-    padding: 8px 12px; border: 1px solid var(--borda); border-radius: 5px; font-size: 0.9rem;
+    padding: 8px 12px; border: 1px solid var(--borda); border-radius: 3px; font-size: 0.9rem;
     font-family: var(--fonte-corpo);
   }
   .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap; }
   .section-title {
-    background: var(--verde-escuro); color: white; padding: 9px 14px; border-radius: 4px;
+    background: var(--verde-escuro); color: white; padding: 9px 14px; border-radius: 3px;
     font-family: var(--fonte-titulo); font-weight: 600; font-size: 1rem; margin: 26px 0 14px;
     border-left: 4px solid var(--terra);
   }
@@ -159,7 +260,7 @@
   .grid.full { grid-template-columns: 1fr; }
   label { display: block; font-size: 0.8rem; color: var(--cinza); margin-bottom: 4px; }
   input[type=text], input[type=number], input[type=date], select, textarea {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 5px; font-size: 0.9rem;
+    width: 100%; padding: 8px 10px; border: 1px solid var(--borda); border-radius: 3px; font-size: 0.9rem;
     font-family: var(--fonte-corpo); background: #fff; color: var(--tinta);
   }
   input:focus, select:focus, textarea:focus {
@@ -168,6 +269,72 @@
   textarea { min-height: 70px; resize: vertical; }
   .form-actions { margin-top: 24px; display: flex; gap: 10px; }
   .empty { text-align: center; color: var(--cinza); padding: 40px 0; }
+
+  /* ---- Cabeçalho de página + cards de estatística (estilo painel) ---- */
+  .page-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; flex-wrap: wrap; margin-bottom: 18px;
+  }
+  .page-header h1 { margin: 0; font-size: 1.5rem; color: var(--verde-escuro); }
+  .page-header .subtitulo { margin: 4px 0 0; font-size: 0.85rem; color: var(--cinza); }
+  .stats-row {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px; margin-bottom: 18px;
+  }
+  .stat-mini {
+    background: #fff; border: 1px solid var(--borda); border-radius: 3px;
+    padding: 14px 16px;
+  }
+  .stat-mini .rotulo {
+    font-size: 0.7rem; color: var(--cinza); text-transform: uppercase;
+    letter-spacing: 0.03em; font-weight: 600;
+  }
+  .stat-mini .valor {
+    font-family: var(--fonte-titulo); font-size: 1.8rem; font-weight: 700;
+    color: var(--verde-escuro); margin-top: 2px;
+  }
+  .stat-mini .valor.acento-terra { color: var(--terra); }
+
+  .filtros-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .filtros-row select {
+    width: auto; padding: 8px 10px;
+  }
+  .toggle-pill { display: inline-flex; border: 1px solid var(--borda); border-radius: 3px; overflow: hidden; }
+  .toggle-pill a {
+    padding: 7px 14px; font-size: 0.85rem; text-decoration: none; color: var(--tinta);
+    background: #fff; border-right: 1px solid var(--borda);
+  }
+  .toggle-pill a:last-child { border-right: none; }
+  .toggle-pill a.selecionado { background: var(--verde); color: #fff; font-weight: 600; }
+  .toggle-pill a:hover:not(.selecionado) { background: var(--verde-claro); }
+
+  .progresso-animais { display: flex; align-items: center; gap: 8px; min-width: 110px; }
+  .progresso-animais .barra {
+    flex: 1; height: 6px; border-radius: 3px; background: #ece7d9;
+    overflow: hidden; min-width: 60px;
+  }
+  .progresso-animais .barra span {
+    display: block; height: 100%; background: var(--verde);
+  }
+  .progresso-animais.parcial .barra span { background: var(--aviso); }
+  .progresso-animais .fracao { font-size: 0.78rem; color: var(--cinza); white-space: nowrap; }
+
+  .badge-ateg {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+  }
+  .badge-ateg.sim { background: var(--verde-claro); color: var(--verde-escuro); border: 1px solid var(--verde); }
+  .badge-ateg.nao { background: #ece7d9; color: var(--cinza); border: 1px solid var(--borda); }
+
+  .paginacao {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 14px; font-size: 0.85rem; color: var(--cinza); flex-wrap: wrap; gap: 10px;
+  }
+  .paginacao .botoes { display: flex; gap: 8px; }
+  .paginacao a.btn.desabilitado { opacity: 0.4; pointer-events: none; }
   .ficha-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; }
   .ficha-grid .full { grid-column: 1 / -1; }
   .ficha-grid label { display: block; font-size: 0.76rem; color: var(--cinza); text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 2px; }
@@ -183,28 +350,59 @@
 </style>
 </head>
 <body>
-<header>
-  <h1>Ficha de Avaliação Técnico-Social (FATS)</h1>
-  <p>Programa Matrizes do Amanhã &amp; Interface FIV Ceará — FAEC / SENAR-CE</p>
-</header>
-<main>
-  {% if qtd_pendentes_offline %}
-    <div class="flash aviso" style="max-width:900px;margin:16px auto 0;display:flex;justify-content:space-between;align-items:center;gap:12px;">
-      <span>⏳ {{ qtd_pendentes_offline }} cadastro{{ 's' if qtd_pendentes_offline != 1 else '' }} feito{{ 's' if qtd_pendentes_offline != 1 else '' }} sem internet, aguardando envio.</span>
-      <a href="{{ url_for('fila') }}" class="btn btn-primary btn-sm" style="white-space:nowrap;">Ver e sincronizar</a>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="marca">
+      <svg width="28" height="28" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M8 4 L22 4 L26 12 L22 26 L8 26 L4 12 Z" stroke="#d9cdb5" stroke-width="1.6" fill="none"/>
+        <circle cx="15" cy="12" r="2.4" fill="#d9cdb5"/>
+      </svg>
+      <div class="marca-texto">
+        <h1>FATS</h1>
+        <p>Matrizes do Amanhã · FIV Ceará</p>
+      </div>
     </div>
-  {% endif %}
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      {% for category, msg in messages %}
-        <div class="flash {{ category }}">{{ msg }}</div>
-      {% endfor %}
-    {% endif %}
-  {% endwith %}
-  {% block content %}{% endblock %}
-</main>
-<footer style="text-align:center; padding:20px 10px 30px; color:#8b9488; font-size:0.75rem;">
-  Sistema FATS — versão com foto do produtor, máscaras e ficha (28/08/2026)
-</footer>
+    <nav>
+      <a href="{{ url_for('index') }}" class="{{ 'ativo' if request.endpoint == 'index' else '' }}">
+        <span class="icone">👤</span> Produtores
+      </a>
+      <a href="{{ url_for('animais') }}" class="{{ 'ativo' if request.endpoint in ('animais', 'fotos_animal') else '' }}">
+        <span class="icone">🐄</span> Animais
+      </a>
+      <a href="{{ url_for('mapa') }}" class="{{ 'ativo' if request.endpoint == 'mapa' else '' }}">
+        <span class="icone">🗺️</span> Mapa
+      </a>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'ativo' if request.endpoint == 'dashboard' else '' }}">
+        <span class="icone">📊</span> Dashboard
+      </a>
+      <a href="{{ url_for('fila') }}" class="{{ 'ativo' if request.endpoint == 'fila' else '' }}">
+        <span class="icone">⏳</span> Fila Offline
+        {% if qtd_pendentes_offline %}<span class="contador">{{ qtd_pendentes_offline }}</span>{% endif %}
+      </a>
+    </nav>
+    <footer>FAEC / SENAR-CE</footer>
+  </aside>
+  <div class="conteudo">
+    <main>
+      {% if qtd_pendentes_offline and request.endpoint != 'fila' %}
+        <div class="flash aviso" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <span>⏳ {{ qtd_pendentes_offline }} cadastro{{ 's' if qtd_pendentes_offline != 1 else '' }} feito{{ 's' if qtd_pendentes_offline != 1 else '' }} sem internet, aguardando envio.</span>
+          <a href="{{ url_for('fila') }}" class="btn btn-primary btn-sm" style="white-space:nowrap;">Ver e sincronizar</a>
+        </div>
+      {% endif %}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, msg in messages %}
+            <div class="flash {{ category }}">{{ msg }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+    <footer style="text-align:center; padding:0 10px 30px; color:#8a7c60; font-size:0.75rem;">
+      Sistema FATS — versão com foto do produtor, máscaras e ficha (28/08/2026)
+    </footer>
+  </div>
+</div>
 </body>
 </html>

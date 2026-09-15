@@ -19,7 +19,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 from database import get_connection, init_db, _base_dir
 from pdf_generator import generate_pdf
-from supabase_storage import enviar_bytes
+from supabase_storage import enviar_bytes, BUCKET_ANIMAIS
 from campos import FIELDS, FIELD_LABELS, MUNICIPIOS_CEARA
 from fila_offline import (
     adicionar_na_fila, listar_pendentes, contar_pendentes, remover_da_fila,
@@ -307,22 +307,75 @@ def dashboard():
 @app.route("/")
 def index():
     busca = request.args.get("q", "").strip()
+    municipio_filtro = request.args.get("municipio", "").strip()
+    ateg_filtro = request.args.get("ateg", "").strip()  # "Sim", "Não" ou "" (todos)
+    try:
+        pagina = int(request.args.get("pagina", 1))
+    except ValueError:
+        pagina = 1
+    pagina = max(1, pagina)
+    POR_PAGINA = 20
+
     conn = get_connection()
+
+    condicoes = []
+    params = []
     if busca:
         like = f"%{busca}%"
-        rows = conn.execute(
-            """SELECT * FROM produtores
-               WHERE nome_produtor ILIKE ? OR cpf ILIKE ? OR municipio ILIKE ?
-                  OR nome_propriedade ILIKE ?
-               ORDER BY nome_produtor""",
-            (like, like, like, like),
+        condicoes.append(
+            "(p.nome_produtor ILIKE ? OR p.cpf ILIKE ? OR p.municipio ILIKE ? OR p.nome_propriedade ILIKE ?)"
+        )
+        params += [like, like, like, like]
+    if municipio_filtro:
+        condicoes.append("p.municipio = ?")
+        params.append(municipio_filtro)
+    if ateg_filtro in ("Sim", "Não"):
+        condicoes.append("p.assistido_ateg = ?")
+        params.append(ateg_filtro)
+    where_sql = ("WHERE " + " AND ".join(condicoes)) if condicoes else ""
+
+    todos = conn.execute(
+        f"""SELECT p.*, COUNT(a.id) AS qtd_animais
+           FROM produtores p
+           LEFT JOIN animais a ON a.produtor_id = p.id
+           {where_sql}
+           GROUP BY p.id
+           ORDER BY p.nome_produtor""",
+        params,
+    ).fetchall()
+
+    # Cards de resumo — calculados sobre TODOS os produtores que batem com
+    # a busca/filtro atual (não só os da página exibida na tabela).
+    total_filtrado = len(todos)
+    qtd_assistidos_ateg = sum(1 for p in todos if (p["assistido_ateg"] or "") == "Sim")
+    qtd_em_meta = sum(1 for p in todos if p["qtd_animais"] >= LIMITE_ANIMAIS_POR_PRODUTOR)
+    pct_em_meta = round(qtd_em_meta / total_filtrado * 100) if total_filtrado else 0
+    qtd_sem_foto = sum(1 for p in todos if not p["foto_produtor"])
+
+    total_paginas = max(1, -(-total_filtrado // POR_PAGINA))  # arredonda pra cima
+    pagina = min(pagina, total_paginas)
+    inicio = (pagina - 1) * POR_PAGINA
+    produtores_pagina = todos[inicio:inicio + POR_PAGINA]
+
+    # Lista de municípios pro filtro: sempre todos os que já têm cadastro
+    # (não só os da busca atual), pra dar pra trocar de filtro livremente.
+    municipios_disponiveis = [
+        m["municipio"] for m in conn.execute(
+            "SELECT DISTINCT municipio FROM produtores WHERE municipio IS NOT NULL AND municipio <> '' ORDER BY municipio"
         ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT * FROM produtores ORDER BY nome_produtor"
-        ).fetchall()
+    ]
+
     conn.close()
-    return render_template("list.html", produtores=rows, busca=busca)
+    return render_template(
+        "list.html", produtores=produtores_pagina, busca=busca,
+        limite_animais=LIMITE_ANIMAIS_POR_PRODUTOR,
+        municipio_filtro=municipio_filtro, ateg_filtro=ateg_filtro,
+        municipios_disponiveis=municipios_disponiveis,
+        pagina=pagina, total_paginas=total_paginas, total_filtrado=total_filtrado,
+        por_pagina=POR_PAGINA, inicio_pagina=inicio,
+        qtd_assistidos_ateg=qtd_assistidos_ateg, pct_em_meta=pct_em_meta,
+        qtd_sem_foto=qtd_sem_foto,
+    )
 
 
 @app.route("/ficha/<int:pid>")
@@ -557,6 +610,165 @@ def excluir(pid):
     conn.close()
     flash("Cadastro excluído.", "success")
     return redirect(url_for("index"))
+
+
+# Quantidade máxima de animais que um produtor pode receber
+LIMITE_ANIMAIS_POR_PRODUTOR = 5
+
+
+@app.route("/produtores/<int:pid>/animais", methods=["GET", "POST"])
+def animais_produtor(pid):
+    conn = get_connection()
+    produtor = conn.execute(
+        "SELECT id, nome_produtor FROM produtores WHERE id = ?", (pid,)
+    ).fetchone()
+    if produtor is None:
+        conn.close()
+        abort(404)
+
+    if request.method == "POST":
+        ids_selecionados = [
+            int(v) for v in request.form.getlist("animal_id") if v.strip()
+        ]
+        qtd_atual = conn.execute(
+            "SELECT COUNT(*) AS n FROM animais WHERE produtor_id = ?", (pid,)
+        ).fetchone()["n"]
+
+        if not ids_selecionados:
+            flash("Selecione ao menos um animal para atribuir.", "error")
+        elif qtd_atual + len(ids_selecionados) > LIMITE_ANIMAIS_POR_PRODUTOR:
+            vagas = max(0, LIMITE_ANIMAIS_POR_PRODUTOR - qtd_atual)
+            flash(
+                f"{produtor['nome_produtor']} já tem {qtd_atual} animal(is). "
+                f"Você só pode adicionar mais {vagas} agora (limite de "
+                f"{LIMITE_ANIMAIS_POR_PRODUTOR} por produtor).",
+                "error",
+            )
+        else:
+            # So atribui quem ainda estiver "disponivel" - protege contra
+            # atribuir duas vezes o mesmo animal (ex: duas abas abertas).
+            placeholders = ", ".join(["?"] * len(ids_selecionados))
+            conn.execute(
+                f"UPDATE animais SET produtor_id = ?, status = 'alocado', "
+                f"atualizado_em = now() WHERE id IN ({placeholders}) AND status = 'disponivel'",
+                [pid] + ids_selecionados,
+            )
+            conn.commit()
+            flash(
+                f"{len(ids_selecionados)} animal(is) atribuído(s) a {produtor['nome_produtor']}.",
+                "success",
+            )
+        conn.close()
+        return redirect(url_for("animais_produtor", pid=pid))
+
+    atribuidos = conn.execute(
+        "SELECT * FROM animais WHERE produtor_id = ? ORDER BY brinco_faec", (pid,)
+    ).fetchall()
+    disponiveis = conn.execute(
+        "SELECT * FROM animais WHERE status = 'disponivel' ORDER BY brinco_faec"
+    ).fetchall()
+    conn.close()
+
+    vagas = max(0, LIMITE_ANIMAIS_POR_PRODUTOR - len(atribuidos))
+    return render_template(
+        "atribuir_animais.html",
+        produtor=produtor,
+        atribuidos=atribuidos,
+        disponiveis=disponiveis,
+        vagas=vagas,
+        limite=LIMITE_ANIMAIS_POR_PRODUTOR,
+    )
+
+
+@app.route("/animais/<int:aid>/desvincular", methods=["POST"])
+def desvincular_animal(aid):
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT produtor_id FROM animais WHERE id = ?", (aid,)
+    ).fetchone()
+    if row is None:
+        conn.close()
+        abort(404)
+    pid = row["produtor_id"]
+    conn.execute(
+        "UPDATE animais SET produtor_id = NULL, status = 'disponivel', "
+        "atualizado_em = now() WHERE id = ?",
+        (aid,),
+    )
+    conn.commit()
+    conn.close()
+    flash("Animal desvinculado do produtor.", "success")
+    if pid:
+        return redirect(url_for("animais_produtor", pid=pid))
+    return redirect(url_for("index"))
+
+
+@app.route("/animais/<int:aid>/fotos", methods=["GET", "POST"])
+def fotos_animal(aid):
+    conn = get_connection()
+    animal = conn.execute("SELECT * FROM animais WHERE id = ?", (aid,)).fetchone()
+    if animal is None:
+        conn.close()
+        abort(404)
+
+    if request.method == "POST":
+        novas_urls = {}
+        for campo in ("foto_1", "foto_2", "foto_3"):
+            arquivo = request.files.get(campo)
+            if arquivo and arquivo.filename:
+                try:
+                    url = enviar_bytes(
+                        arquivo.read(), arquivo.filename, arquivo.mimetype or "",
+                        bucket=BUCKET_ANIMAIS,
+                    )
+                    novas_urls[campo] = url
+                except Exception as e:
+                    flash(f"Erro ao enviar a foto ({campo}): {e}", "error")
+
+        if novas_urls:
+            set_clause = ", ".join(f"{c} = ?" for c in novas_urls)
+            conn.execute(
+                f"UPDATE animais SET {set_clause}, atualizado_em = now() WHERE id = ?",
+                list(novas_urls.values()) + [aid],
+            )
+            conn.commit()
+            flash("Foto(s) do animal atualizada(s) com sucesso.", "success")
+        conn.close()
+        return redirect(url_for("fotos_animal", aid=aid))
+
+    conn.close()
+    return render_template("fotos_animal.html", animal=animal)
+
+
+@app.route("/animais")
+def animais():
+    busca = request.args.get("q", "").strip()
+    conn = get_connection()
+    if busca:
+        like = f"%{busca}%"
+        rows = conn.execute(
+            """SELECT a.*, p.nome_produtor
+               FROM animais a LEFT JOIN produtores p ON p.id = a.produtor_id
+               WHERE a.brinco_faec ILIKE ? OR a.brinco_fazenda ILIKE ?
+                  OR p.nome_produtor ILIKE ?
+               ORDER BY a.brinco_faec""",
+            (like, like, like),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """SELECT a.*, p.nome_produtor
+               FROM animais a LEFT JOIN produtores p ON p.id = a.produtor_id
+               ORDER BY a.brinco_faec"""
+        ).fetchall()
+    total = conn.execute("SELECT COUNT(*) AS n FROM animais").fetchone()["n"]
+    disponiveis = conn.execute(
+        "SELECT COUNT(*) AS n FROM animais WHERE status = 'disponivel'"
+    ).fetchone()["n"]
+    conn.close()
+    return render_template(
+        "animais.html", animais=rows, busca=busca, total=total,
+        disponiveis=disponiveis, alocados=total - disponiveis,
+    )
 
 
 @app.route("/pdf/<int:pid>")

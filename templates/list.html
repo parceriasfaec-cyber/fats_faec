@@ -1,17 +1,60 @@
 {% extends "base.html" %}
 {% block title %}Produtores - FATS{% endblock %}
 {% block content %}
-<div class="card">
-  <div class="toolbar">
-    <form method="get" style="display:flex; gap:8px;">
-      <input type="search" name="q" placeholder="Buscar por nome, CPF, propriedade ou município" value="{{ busca }}" style="width:320px;">
-      <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
-    </form>
-    <a href="{{ url_for('mapa') }}" class="btn btn-ghost">🗺️ Mapa</a>
-    <a href="{{ url_for('dashboard') }}" class="btn btn-ghost">📊 Dashboard</a>
-    <a href="{{ url_for('exportar_excel', q=busca) }}" class="btn btn-ghost">⬇ Exportar Excel</a>
-    <a href="{{ url_for('novo') }}" class="btn btn-primary">+ Novo Produtor</a>
+
+<div class="page-header">
+  <div>
+    <h1>Produtores rurais</h1>
+    <p class="subtitulo">Ficha de campo — acompanhamento por núcleo e ATEG</p>
   </div>
+  <a href="{{ url_for('novo') }}" class="btn btn-primary">+ Novo Produtor</a>
+</div>
+
+<div class="stats-row">
+  <div class="stat-mini">
+    <div class="rotulo">Cadastrados</div>
+    <div class="valor">{{ total_filtrado }}</div>
+  </div>
+  <div class="stat-mini">
+    <div class="rotulo">Assistidos ATEG</div>
+    <div class="valor">{{ qtd_assistidos_ateg }}</div>
+  </div>
+  <div class="stat-mini">
+    <div class="rotulo">Animais em Meta</div>
+    <div class="valor">{{ pct_em_meta }}%</div>
+  </div>
+  <div class="stat-mini">
+    <div class="rotulo">Sem Foto Cadastrada</div>
+    <div class="valor acento-terra">{{ qtd_sem_foto }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <form method="get" class="filtros-row">
+    <input type="search" name="q" placeholder="Buscar por nome, CPF ou propriedade" value="{{ busca }}" style="width:280px;">
+
+    <select name="municipio" onchange="this.form.submit()">
+      <option value="">Município — todos</option>
+      {% for m in municipios_disponiveis %}
+        <option value="{{ m }}" {{ 'selected' if m == municipio_filtro else '' }}>{{ m }}</option>
+      {% endfor %}
+    </select>
+
+    <span class="toggle-pill">
+      <a href="{{ url_for('index', q=busca, municipio=municipio_filtro, ateg='') }}"
+         class="{{ 'selecionado' if not ateg_filtro else '' }}">ATEG: Todos</a>
+      <a href="{{ url_for('index', q=busca, municipio=municipio_filtro, ateg='Sim') }}"
+         class="{{ 'selecionado' if ateg_filtro == 'Sim' else '' }}">Sim</a>
+      <a href="{{ url_for('index', q=busca, municipio=municipio_filtro, ateg='Não') }}"
+         class="{{ 'selecionado' if ateg_filtro == 'Não' else '' }}">Não</a>
+    </span>
+
+    <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
+
+    <span style="margin-left:auto; display:flex; gap:8px;">
+      <a href="{{ url_for('exportar_excel', q=busca) }}" class="btn btn-ghost">⬇ Exportar Excel</a>
+    </span>
+  </form>
 
   {% if produtores %}
   <div class="tabela-scroll">
@@ -20,11 +63,11 @@
       <tr>
         <th class="col-principal nowrap">Foto</th>
         <th class="col-principal nowrap">CPF</th>
-        <th class="col-principal">Nome do Produtor</th>
-        <th class="col-principal">Nome da Propriedade</th>
+        <th class="col-principal">Produtor / Propriedade</th>
         <th class="col-principal">Município</th>
-        <th>Assistido ATeG?</th>
         <th>Responsável</th>
+        <th class="nowrap">Animais</th>
+        <th>ATEG</th>
         <th class="actions">Ações</th>
       </tr>
     </thead>
@@ -43,14 +86,28 @@
         <td class="nowrap">{{ p['cpf']|mascara_cpf if p['cpf'] else '-' }}</td>
         <td class="col-principal">
           <a class="link-produtor" href="{{ url_for('ficha', pid=p['id']) }}">{{ (p['nome_produtor'] or '-')|upper }}</a>
+          <div style="font-size:0.78rem; color:var(--cinza); font-weight:400;">{{ (p['nome_propriedade'] or '-')|upper }}</div>
         </td>
-        <td>{{ (p['nome_propriedade'] or '-')|upper }}</td>
         <td>{{ (p['municipio'] or '-')|upper }}</td>
-        <td>{{ p['assistido_ateg'] or '-' }}</td>
         <td>{{ (p['tecnico_responsavel'] or '-')|upper }}</td>
+        <td class="nowrap">
+          <div class="progresso-animais {{ 'parcial' if 0 < p['qtd_animais'] < limite_animais else '' }}">
+            <span class="barra"><span style="width: {{ (p['qtd_animais'] / limite_animais * 100) if limite_animais else 0 }}%;"></span></span>
+            <span class="fracao">{{ p['qtd_animais'] }}/{{ limite_animais }}</span>
+          </div>
+        </td>
+        <td>
+          {% if p['assistido_ateg'] == 'Sim' %}
+            <span class="badge-ateg sim">Sim</span>
+          {% elif p['assistido_ateg'] == 'Não' %}
+            <span class="badge-ateg nao">Não</span>
+          {% else %}
+            <span class="badge-ateg nao">-</span>
+          {% endif %}
+        </td>
         <td class="actions">
-          <a class="btn btn-ghost btn-sm" href="{{ url_for('ficha', pid=p['id']) }}">👁 Ver</a>
           <a class="btn btn-secondary btn-sm" href="{{ url_for('editar', pid=p['id']) }}">✏️ Editar</a>
+          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('animais_produtor', pid=p['id']) }}">🐄 Animais</a>
           <a class="btn btn-outline-terra btn-sm" href="{{ url_for('pdf', pid=p['id']) }}" target="_blank">📄 PDF</a>
           <form method="post" action="{{ url_for('excluir', pid=p['id']) }}"
                 onsubmit="return confirm('Excluir o cadastro de {{ p['nome_produtor'] or 'este produtor' }}?');">
@@ -62,10 +119,22 @@
     </tbody>
   </table>
   </div>
+
+  <div class="paginacao">
+    <span>
+      Mostrando {{ inicio_pagina + 1 }}–{{ inicio_pagina + produtores|length }} de {{ total_filtrado }} produtores
+    </span>
+    <span class="botoes">
+      <a class="btn btn-ghost btn-sm {{ 'desabilitado' if pagina <= 1 else '' }}"
+         href="{{ url_for('index', q=busca, municipio=municipio_filtro, ateg=ateg_filtro, pagina=pagina-1) }}">← Anterior</a>
+      <a class="btn btn-ghost btn-sm {{ 'desabilitado' if pagina >= total_paginas else '' }}"
+         href="{{ url_for('index', q=busca, municipio=municipio_filtro, ateg=ateg_filtro, pagina=pagina+1) }}">Próxima →</a>
+    </span>
+  </div>
   {% else %}
     <div class="empty">
-      {% if busca %}
-        Nenhum produtor encontrado para "{{ busca }}".
+      {% if busca or municipio_filtro or ateg_filtro %}
+        Nenhum produtor encontrado com esses filtros.
       {% else %}
         Nenhum produtor cadastrado ainda. Clique em "Novo Produtor" para começar.
       {% endif %}

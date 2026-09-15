@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Atribuir animais - {{ produtor['nome_produtor'] }} - FATS{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;">🐄 Animais de {{ (produtor['nome_produtor'] or '-')|upper }}</h2>
+    <a href="{{ url_for('index') }}" class="btn btn-ghost">← Voltar para produtores</a>
+  </div>
+  <p style="color:var(--cinza); margin-top:-6px;">
+    Limite de {{ limite }} animais por produtor —
+    {% if vagas > 0 %}
+      ainda há <strong>{{ vagas }}</strong> vaga(s) disponível(is) para este produtor.
+    {% else %}
+      este produtor já atingiu o limite de {{ limite }} animais.
+    {% endif %}
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">Animais já atribuídos ({{ atribuidos|length }})</h3>
+  {% if atribuidos %}
+  <div class="tabela-scroll">
+  <table class="list">
+    <thead>
+      <tr>
+        <th class="col-principal nowrap">Foto</th>
+        <th class="col-principal nowrap">Brinco FAEC</th>
+        <th class="col-principal">Brinco Fazenda</th>
+        <th class="actions">Ações</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in atribuidos %}
+      <tr>
+        <td class="nowrap">
+          {% if a['foto_1'] %}
+          <a href="{{ foto_url(a['foto_1']) }}" target="_blank">
+            <img class="foto-thumb" src="{{ foto_url(a['foto_1']) }}" alt="Foto do animal {{ a['brinco_faec'] }}">
+          </a>
+          {% else %}
+          <span class="foto-thumb-placeholder">-</span>
+          {% endif %}
+        </td>
+        <td class="nowrap">{{ a['brinco_faec'] }}</td>
+        <td>{{ a['brinco_fazenda'] or '-' }}</td>
+        <td class="actions">
+          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('fotos_animal', aid=a['id']) }}">📷 Fotos</a>
+          <form method="post" action="{{ url_for('desvincular_animal', aid=a['id']) }}"
+                onsubmit="return confirm('Desvincular o animal {{ a['brinco_faec'] }} deste produtor?');">
+            <button class="btn btn-danger-ghost btn-sm" type="submit">✖ Desvincular</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <div class="empty">Nenhum animal atribuído a este produtor ainda.</div>
+  {% endif %}
+</div>
+
+{% if vagas > 0 %}
+<div class="card">
+  <h3 style="margin-top:0;">Selecionar animais disponíveis</h3>
+  {% if disponiveis %}
+  <form method="post">
+    <p style="color:var(--cinza); font-size:0.85rem;">
+      Marque até {{ vagas }} animal(is) e clique em "Atribuir selecionados".
+    </p>
+    <div class="tabela-scroll">
+    <table class="list">
+      <thead>
+        <tr>
+          <th class="nowrap">Selecionar</th>
+          <th class="col-principal nowrap">Foto</th>
+          <th class="col-principal nowrap">Brinco FAEC</th>
+          <th class="col-principal">Brinco Fazenda</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in disponiveis %}
+        <tr>
+          <td class="nowrap">
+            <input type="checkbox" name="animal_id" value="{{ a['id'] }}" style="width:18px; height:18px;">
+          </td>
+          <td class="nowrap">
+            {% if a['foto_1'] %}
+            <a href="{{ foto_url(a['foto_1']) }}" target="_blank">
+              <img class="foto-thumb" src="{{ foto_url(a['foto_1']) }}" alt="Foto do animal {{ a['brinco_faec'] }}">
+            </a>
+            {% else %}
+            <span class="foto-thumb-placeholder">-</span>
+            {% endif %}
+          </td>
+          <td class="nowrap">{{ a['brinco_faec'] }}</td>
+          <td>{{ a['brinco_fazenda'] or '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">✔ Atribuir selecionados</button>
+    </div>
+  </form>
+  {% else %}
+    <div class="empty">Não há animais disponíveis no momento (todos já foram alocados).</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Fotos do animal {{ animal['brinco_faec'] }} - FATS{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;">📷 Fotos do animal {{ animal['brinco_faec'] }}</h2>
+    <a href="{{ url_for('animais') }}" class="btn btn-ghost">← Voltar para animais</a>
+  </div>
+  <p style="color:var(--cinza); margin-top:-6px;">
+    Brinco Fazenda: <strong>{{ animal['brinco_fazenda'] or '-' }}</strong>
+    &nbsp;•&nbsp;
+    Status: <strong>{{ 'Alocado' if animal['status'] == 'alocado' else 'Disponível' }}</strong>
+  </p>
+</div>
+
+<div class="card">
+  <form method="post" enctype="multipart/form-data">
+    <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap:20px;">
+
+      {% for campo, rotulo in [('foto_1', 'Foto 1'), ('foto_2', 'Foto 2'), ('foto_3', 'Foto 3')] %}
+      <div>
+        <label>{{ rotulo }}</label>
+        <div style="margin-bottom:8px;">
+          {% if animal[campo] %}
+            <a href="{{ foto_url(animal[campo]) }}" target="_blank">
+              <img src="{{ foto_url(animal[campo]) }}" alt="{{ rotulo }}"
+                   style="width:100%; max-width:220px; border-radius:6px; border:1px solid var(--borda);">
+            </a>
+          {% else %}
+            <div class="foto-thumb-placeholder" style="width:100%; max-width:220px; height:140px; display:flex; align-items:center; justify-content:center; border:1px dashed var(--borda); border-radius:6px;">
+              Sem foto
+            </div>
+          {% endif %}
+        </div>
+        <input type="file" name="{{ campo }}" accept="image/*">
+        <p style="font-size:0.75rem; color:var(--cinza); margin:4px 0 0;">
+          {% if animal[campo] %}Escolha um arquivo para substituir esta foto.{% else %}Escolha um arquivo para adicionar esta foto.{% endif %}
+        </p>
+      </div>
+      {% endfor %}
+
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">💾 Salvar fotos</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
