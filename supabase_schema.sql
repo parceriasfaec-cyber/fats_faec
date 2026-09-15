@@ -109,4 +109,8 @@ ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS car TEXT;
 ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS latitude TEXT;
 ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS longitude TEXT;
 
+-- Adiciona o campo de peso na tabela de animais (rode este comando se
+-- a tabela FIV.animais já existia antes desta mudança).
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS peso TEXT;
+
 -- Pronto! A tabela FIV.produtores está criada e vazia, pronta para receber os dados.

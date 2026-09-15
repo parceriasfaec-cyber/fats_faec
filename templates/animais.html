@@ -33,6 +33,7 @@
         <th class="col-principal nowrap">Foto</th>
         <th class="col-principal nowrap">Brinco FAEC</th>
         <th class="col-principal">Brinco Fazenda</th>
+        <th class="nowrap">Peso (kg)</th>
         <th>Status</th>
         <th class="col-principal">Produtor</th>
         <th class="actions">Ações</th>
@@ -52,6 +53,7 @@
         </td>
         <td class="nowrap">{{ a['brinco_faec'] }}</td>
         <td>{{ a['brinco_fazenda'] or '-' }}</td>
+        <td class="nowrap">{{ a['peso'] or '-' }}</td>
         <td>
           {% if a['status'] == 'alocado' %}
             <span class="flash success" style="display:inline-block; padding:2px 8px; margin:0;">Alocado</span>

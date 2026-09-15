@@ -15,6 +15,13 @@
 
 <div class="card">
   <form method="post" enctype="multipart/form-data">
+    <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:20px;">
+      <div>
+        <label>Peso (kg)</label>
+        <input type="text" name="peso" class="decimal-digits" inputmode="decimal"
+               placeholder="Ex: 320,5" value="{{ animal['peso'] or '' }}">
+      </div>
+    </div>
     <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap:20px;">
 
       {% for campo, rotulo in [('foto_1', 'Foto 1'), ('foto_2', 'Foto 2'), ('foto_3', 'Foto 3')] %}
@@ -47,7 +54,7 @@
 
     </div>
     <div class="form-actions">
-      <button class="btn btn-primary" type="submit">💾 Salvar fotos</button>
+      <button class="btn btn-primary" type="submit">💾 Salvar</button>
     </div>
   </form>
 </div>

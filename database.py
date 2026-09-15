@@ -132,6 +132,7 @@ CREATE TABLE IF NOT EXISTS "FIV".animais (
 
     brinco_faec TEXT,      -- numero sequencial do brinco FAEC (ex: "0001")
     brinco_fazenda TEXT,   -- identificacao do brinco na fazenda (ex: "V 1452")
+    peso TEXT,             -- peso do animal em kg (ex: "320,5")
 
     foto_1 TEXT,
     foto_2 TEXT,
@@ -150,6 +151,11 @@ CREATE TABLE IF NOT EXISTS "FIV".animais (
 
 CREATE INDEX IF NOT EXISTS idx_animais_produtor ON "FIV".animais(produtor_id);
 CREATE INDEX IF NOT EXISTS idx_animais_status ON "FIV".animais(status);
+
+-- Migracao: garante a coluna peso em bancos que ja tinham a tabela
+-- animais criada antes desta mudanca (CREATE TABLE IF NOT EXISTS acima
+-- nao adiciona coluna em tabela que ja existe).
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS peso TEXT;
 """
 
 

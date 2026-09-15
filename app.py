@@ -750,16 +750,21 @@ def fotos_animal(aid):
                 urls_para_excluir.append(animal[campo])
                 novas_urls[campo] = None
 
-        if novas_urls:
-            set_clause = ", ".join(f"{c} = ?" for c in novas_urls)
+        campos_para_salvar = dict(novas_urls)
+        peso = request.form.get("peso", "").strip()
+        if peso != (animal["peso"] or ""):
+            campos_para_salvar["peso"] = peso or None
+
+        if campos_para_salvar:
+            set_clause = ", ".join(f"{c} = ?" for c in campos_para_salvar)
             conn.execute(
                 f"UPDATE animais SET {set_clause}, atualizado_em = now() WHERE id = ?",
-                list(novas_urls.values()) + [aid],
+                list(campos_para_salvar.values()) + [aid],
             )
             conn.commit()
             for url in urls_para_excluir:
                 excluir_arquivo(url)
-            flash("Foto(s) do animal atualizada(s) com sucesso.", "success")
+            flash("Dados do animal atualizados com sucesso.", "success")
         conn.close()
         return redirect(url_for("fotos_animal", aid=aid))
 
