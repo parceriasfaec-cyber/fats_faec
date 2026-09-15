@@ -223,18 +223,28 @@ def mapa():
 
     pontos = []
     sem_coordenadas = 0
+    # Contagem por municipio, para os cartoes do topo acompanharem o filtro
+    municipio_stats = {}
     for row in rows:
         produtor = dict(row)
+        municipio = produtor.get("municipio") or "-"
+        stats = municipio_stats.setdefault(
+            municipio, {"total": 0, "no_mapa": 0, "sem_coordenadas": 0}
+        )
+        stats["total"] += 1
+
         lat = _parse_coordenada(produtor.get("latitude"))
         lon = _parse_coordenada(produtor.get("longitude"))
         if lat is None or lon is None:
             sem_coordenadas += 1
+            stats["sem_coordenadas"] += 1
             continue
+        stats["no_mapa"] += 1
         pontos.append({
             "id": produtor["id"],
             "nome_produtor": produtor.get("nome_produtor") or "-",
             "nome_propriedade": produtor.get("nome_propriedade") or "-",
-            "municipio": produtor.get("municipio") or "-",
+            "municipio": municipio,
             "tecnico_responsavel": produtor.get("tecnico_responsavel") or "-",
             "lat": lat,
             "lon": lon,
@@ -247,6 +257,7 @@ def mapa():
         total=len(rows),
         qtd_no_mapa=len(pontos),
         sem_coordenadas=sem_coordenadas,
+        municipio_stats_json=json.dumps(municipio_stats, ensure_ascii=False),
     )
 
 

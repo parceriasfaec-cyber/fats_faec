@@ -9,16 +9,16 @@
 
 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
   <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Total de Produtores</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde-escuro);">{{ total }}</div>
+    <div id="card-total-label" style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Total de Produtores</div>
+    <div id="card-total-valor" style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde-escuro);">{{ total }}</div>
   </div>
   <div class="card card-stat" style="text-align:center; margin-bottom:0;">
     <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">No Mapa (com coordenadas)</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde);">{{ qtd_no_mapa }}</div>
+    <div id="card-no-mapa-valor" style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde);">{{ qtd_no_mapa }}</div>
   </div>
   <div class="card card-stat acento-erro" style="text-align:center; margin-bottom:0;">
     <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Sem Coordenadas</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--erro);">{{ sem_coordenadas }}</div>
+    <div id="card-sem-coord-valor" style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--erro);">{{ sem_coordenadas }}</div>
   </div>
 </div>
 
@@ -34,6 +34,30 @@
     <select id="filtro-produtor">
       <option value="">Selecione um produtor...</option>
     </select>
+  </div>
+  <div style="min-width:220px;">
+    <label for="filtro-partida">Ponto de partida</label>
+    <select id="filtro-partida">
+      <option value="atual">Minha localização atual</option>
+      <option value="fortaleza">Sair de Fortaleza</option>
+    </select>
+  </div>
+  <div style="display:flex; gap:8px;">
+    <button id="btn-criar-rota" class="btn btn-primary" type="button">🚚 Criar rota de entrega</button>
+    <button id="btn-limpar-rota" class="btn btn-secondary" type="button" style="display:none;">Limpar rota</button>
+  </div>
+</div>
+
+<div id="rota-status" style="display:none;" class="card">
+  <span id="rota-status-texto">Calculando a melhor rota...</span>
+</div>
+
+<div id="rota-painel" class="card" style="display:none;">
+  <h3 style="margin-top:0; color: var(--verde-escuro);">Rota de entrega sugerida</h3>
+  <div id="rota-resumo" style="margin-bottom:12px; color:var(--cinza); font-size:0.9rem;"></div>
+  <ol id="rota-lista" style="margin:0; padding-left:20px; line-height:1.9;"></ol>
+  <div style="margin-top:16px;">
+    <a id="rota-google-maps" href="#" target="_blank" rel="noopener" class="btn btn-primary">Abrir rota no Google Maps</a>
   </div>
 </div>
 
@@ -55,6 +79,10 @@
   integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
   const pontos = {{ pontos_json | safe }};
+  const municipioStats = {{ municipio_stats_json | safe }};
+  const totalGeral = {{ total }};
+  const noMapaGeral = {{ qtd_no_mapa }};
+  const semCoordGeral = {{ sem_coordenadas }};
 
   // Contorno aproximado do estado do Ceara (sudoeste, nordeste)
   const CEARA_BOUNDS = L.latLngBounds([-7.9, -41.4], [-2.7, -37.0]);
@@ -151,9 +179,31 @@
     }
   }
 
+  // ---- Cartoes do topo acompanhando o municipio selecionado ----
+  const cardTotalLabel = document.getElementById('card-total-label');
+  const cardTotalValor = document.getElementById('card-total-valor');
+  const cardNoMapaValor = document.getElementById('card-no-mapa-valor');
+  const cardSemCoordValor = document.getElementById('card-sem-coord-valor');
+
+  function atualizarCartoes(municipioSelecionado) {
+    if (!municipioSelecionado) {
+      cardTotalLabel.textContent = 'Total de Produtores';
+      cardTotalValor.textContent = totalGeral;
+      cardNoMapaValor.textContent = noMapaGeral;
+      cardSemCoordValor.textContent = semCoordGeral;
+      return;
+    }
+    const stats = municipioStats[municipioSelecionado] || { total: 0, no_mapa: 0, sem_coordenadas: 0 };
+    cardTotalLabel.textContent = 'Total em ' + municipioSelecionado;
+    cardTotalValor.textContent = stats.total;
+    cardNoMapaValor.textContent = stats.no_mapa;
+    cardSemCoordValor.textContent = stats.sem_coordenadas;
+  }
+
   seletorMunicipio.addEventListener('change', function () {
     popularProdutores(seletorMunicipio.value);
     atualizarMarcadoresVisiveis();
+    atualizarCartoes(seletorMunicipio.value);
   });
 
   seletorProdutor.addEventListener('change', function () {
@@ -166,6 +216,224 @@
       info.marcador.openPopup();
     }
   });
+
+  // ---- Criar rota de entrega (melhor ordem de visita) ----
+  const btnCriarRota = document.getElementById('btn-criar-rota');
+  const btnLimparRota = document.getElementById('btn-limpar-rota');
+  const seletorPartida = document.getElementById('filtro-partida');
+  const rotaStatus = document.getElementById('rota-status');
+  const rotaStatusTexto = document.getElementById('rota-status-texto');
+  const rotaPainel = document.getElementById('rota-painel');
+  const rotaResumo = document.getElementById('rota-resumo');
+  const rotaLista = document.getElementById('rota-lista');
+  const linkGoogleMaps = document.getElementById('rota-google-maps');
+
+  let linhaRota = null;
+  let marcadoresNumerados = [];
+  let marcadorPartida = null;
+
+  // Coordenadas aproximadas do centro de Fortaleza, usadas quando o
+  // usuario escolhe "Sair de Fortaleza" como ponto de partida.
+  const FORTALEZA_COORD = { lat: -3.71722, lon: -38.5433 };
+
+  // O botao de criar rota nao depende mais da selecao de um municipio:
+  // sem municipio selecionado, a rota e calculada com todos os produtores
+  // visiveis no mapa (todos os que tem coordenadas).
+  function habilitarBotaoRota() {
+    btnCriarRota.disabled = pontos.length === 0;
+  }
+  habilitarBotaoRota();
+
+  function limparRota() {
+    if (linhaRota) { mapa.removeLayer(linhaRota); linhaRota = null; }
+    marcadoresNumerados.forEach(function (m) { mapa.removeLayer(m); });
+    marcadoresNumerados = [];
+    if (marcadorPartida) { mapa.removeLayer(marcadorPartida); marcadorPartida = null; }
+    rotaPainel.style.display = 'none';
+    rotaStatus.style.display = 'none';
+    btnLimparRota.style.display = 'none';
+  }
+  btnLimparRota.addEventListener('click', limparRota);
+
+  function iconeNumerado(numero, cor) {
+    return L.divIcon({
+      className: '',
+      html: '<div style="background:' + cor + ';color:#fff;width:26px;height:26px;border-radius:50%;' +
+        'display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;' +
+        'border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);">' + numero + '</div>',
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    });
+  }
+
+  function formatarDistancia(metros) {
+    return metros >= 1000 ? (metros / 1000).toFixed(1) + ' km' : Math.round(metros) + ' m';
+  }
+  function formatarDuracao(segundos) {
+    const min = Math.round(segundos / 60);
+    if (min < 60) return min + ' min';
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h + 'h' + (m ? ' ' + m + 'min' : '');
+  }
+
+  async function calcularRota(pontosMunicipio, partida) {
+    // Monta a lista de coordenadas: ponto de partida (se houver) + paradas
+    const coordenadas = [];
+    if (partida) coordenadas.push([partida.lon, partida.lat]);
+    pontosMunicipio.forEach(function (p) { coordenadas.push([p.lon, p.lat]); });
+
+    const coordsStr = coordenadas.map(function (c) { return c[0] + ',' + c[1]; }).join(';');
+    const url = 'https://router.project-osrm.org/trip/v1/driving/' + coordsStr +
+      '?source=first&roundtrip=false&overview=full&geometries=geojson';
+
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Falha ao consultar o serviço de rotas');
+    const dados = await resp.json();
+    if (dados.code !== 'Ok') throw new Error(dados.message || 'Não foi possível calcular a rota');
+    return dados;
+  }
+
+  btnCriarRota.addEventListener('click', function () {
+    // Sem municipio selecionado, usa todos os produtores com coordenadas.
+    const municipioSelecionado = seletorMunicipio.value;
+    const pontosAlvo = municipioSelecionado
+      ? pontos.filter(function (p) { return p.municipio === municipioSelecionado; })
+      : pontos;
+    if (pontosAlvo.length === 0) return;
+
+    limparRota();
+    rotaStatus.style.display = 'block';
+
+    function prosseguir(partida) {
+      rotaStatusTexto.textContent = 'Calculando a melhor rota de entrega...';
+      calcularRota(pontosAlvo, partida)
+        .then(function (dados) { montarRotaNoMapa(dados, pontosAlvo, partida); })
+        .catch(function (erro) {
+          rotaStatusTexto.textContent = 'Erro: ' + erro.message + '. Tente novamente.';
+        });
+    }
+
+    if (seletorPartida.value === 'fortaleza') {
+      // Ponto de partida fixo: nao precisa de geolocalizacao.
+      rotaStatusTexto.textContent = 'Calculando a melhor rota de entrega...';
+      prosseguir(FORTALEZA_COORD);
+    } else if (navigator.geolocation) {
+      rotaStatusTexto.textContent = 'Obtendo sua localização atual...';
+      navigator.geolocation.getCurrentPosition(
+        function (pos) {
+          prosseguir({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        },
+        function () {
+          // Sem permissão de localização: comeca a rota a partir do primeiro produtor
+          rotaStatusTexto.textContent = 'Localização indisponível — a rota vai começar pelo primeiro produtor da lista.';
+          prosseguir(null);
+        },
+        { timeout: 8000 }
+      );
+    } else {
+      prosseguir(null);
+    }
+  });
+
+  function montarRotaNoMapa(dados, pontosMunicipio, partida) {
+    rotaStatus.style.display = 'none';
+    btnLimparRota.style.display = 'inline-block';
+
+    // "waypoints" traz a ordem otimizada (waypoint_index) para cada coordenada enviada
+    const waypoints = dados.waypoints;
+    const trip = dados.trips[0];
+
+    // Remonta a lista de pontos na mesma ordem em que foram enviados (partida + pontosMunicipio)
+    const listaEnviada = [];
+    if (partida) listaEnviada.push({ tipo: 'partida', dado: partida });
+    pontosMunicipio.forEach(function (p) { listaEnviada.push({ tipo: 'produtor', dado: p }); });
+
+    // Ordena pelos indices otimizados devolvidos pelo OSRM
+    const ordenados = listaEnviada
+      .map(function (item, i) { return { item: item, ordem: waypoints[i].waypoint_index }; })
+      .sort(function (a, b) { return a.ordem - b.ordem; });
+
+    // Desenha a linha da rota
+    const latlngs = trip.geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
+    linhaRota = L.polyline(latlngs, { color: '#a8571e', weight: 4, opacity: 0.8 }).addTo(mapa);
+
+    // Marca o ponto de partida (se houver) e numera as paradas em ordem
+    const boundsPontos = [];
+    let numeroParada = 1;
+    rotaLista.innerHTML = '';
+
+    // trip.legs[i] traz a distância/duração do trecho entre a parada i e a parada i+1,
+    // já na ordem otimizada devolvida pelo OSRM.
+    const legs = trip.legs || [];
+    let distanciaAcumulada = 0;
+
+    ordenados.forEach(function (entrada, indice) {
+      if (entrada.item.tipo === 'partida') {
+        marcadorPartida = L.marker([entrada.item.dado.lat, entrada.item.dado.lon], {
+          icon: iconeNumerado('🏁', '#2f5233'),
+        }).addTo(mapa).bindPopup('Ponto de partida (sua localização)');
+        boundsPontos.push([entrada.item.dado.lat, entrada.item.dado.lon]);
+      } else {
+        const p = entrada.item.dado;
+        const perna = legs[indice - 1]; // trecho que chega até esta parada
+        const distanciaTrecho = perna ? perna.distance : null;
+        const duracaoTrecho = perna ? perna.duration : null;
+        if (distanciaTrecho !== null) distanciaAcumulada += distanciaTrecho;
+
+        const m = L.marker([p.lat, p.lon], { icon: iconeNumerado(numeroParada, '#a8571e') })
+          .addTo(mapa)
+          .bindPopup('<strong>' + numeroParada + '. ' + p.nome_produtor + '</strong><br>' +
+            p.nome_propriedade + '<br>' +
+            (distanciaTrecho !== null
+              ? '<span style="color:#777;font-size:0.85em;">' + formatarDistancia(distanciaTrecho) +
+                ' desde a parada anterior · ' + formatarDuracao(duracaoTrecho) + '</span><br>'
+              : '') +
+            '<a href="/ficha/' + p.id + '" target="_blank" style="color:#a8571e;">Ver ficha completa</a>');
+        marcadoresNumerados.push(m);
+        boundsPontos.push([p.lat, p.lon]);
+
+        const li = document.createElement('li');
+        li.innerHTML = '<strong>' + p.nome_produtor + '</strong> — ' + p.nome_propriedade +
+          ' <span style="color:var(--cinza); font-size:0.85em;">(' + p.municipio + ')</span>' +
+          (distanciaTrecho !== null
+            ? '<br><span style="color:#a8571e; font-size:0.82em;">' +
+              formatarDistancia(distanciaTrecho) + ' · ' + formatarDuracao(duracaoTrecho) +
+              ' desde a parada anterior · acumulado: ' + formatarDistancia(distanciaAcumulada) + '</span>'
+            : '');
+        rotaLista.appendChild(li);
+
+        numeroParada++;
+      }
+    });
+
+    mapa.fitBounds(L.latLngBounds(boundsPontos).pad(0.2), { maxZoom: 13 });
+
+    rotaResumo.textContent = numeroParada - 1 + ' parada(s) · ' +
+      formatarDistancia(trip.distance) + ' · aproximadamente ' + formatarDuracao(trip.duration);
+    rotaPainel.style.display = 'block';
+
+    // Monta o link para abrir a mesma ordem de paradas no Google Maps (navegação real)
+    const pontosOrdenadosProdutores = ordenados
+      .filter(function (e) { return e.item.tipo === 'produtor'; })
+      .map(function (e) { return e.item.dado; });
+
+    let googleUrl = 'https://www.google.com/maps/dir/?api=1';
+    if (partida) {
+      googleUrl += '&origin=' + partida.lat + ',' + partida.lon;
+    } else {
+      googleUrl += '&origin=' + pontosOrdenadosProdutores[0].lat + ',' + pontosOrdenadosProdutores[0].lon;
+    }
+    const paradasParaLink = partida ? pontosOrdenadosProdutores : pontosOrdenadosProdutores.slice(1);
+    const destino = pontosOrdenadosProdutores[pontosOrdenadosProdutores.length - 1];
+    googleUrl += '&destination=' + destino.lat + ',' + destino.lon;
+    const intermediarias = paradasParaLink.slice(0, -1);
+    if (intermediarias.length) {
+      googleUrl += '&waypoints=' + intermediarias.map(function (p) { return p.lat + ',' + p.lon; }).join('|');
+    }
+    googleUrl += '&travelmode=driving';
+    linkGoogleMaps.href = googleUrl;
+  }
 </script>
 {% endif %}
 
