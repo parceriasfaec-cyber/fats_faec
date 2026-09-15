@@ -61,10 +61,27 @@
 </div>
 
 {% if vagas > 0 %}
-<div class="card">
+<div class="card" style="margin-bottom:70px;">
   <h3 style="margin-top:0;">Selecionar animais disponíveis</h3>
+
+  <form method="get" style="display:flex; gap:8px; margin-bottom:14px;">
+    <input type="search" name="q_animal" placeholder="Buscar por brinco FAEC ou brinco fazenda" value="{{ busca_disp }}" style="width:300px;">
+    <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
+    {% if busca_disp %}
+      <a href="{{ url_for('animais_produtor', pid=produtor['id']) }}" class="btn btn-ghost">✕ Limpar</a>
+    {% endif %}
+  </form>
+
+  {% if total_disponiveis > disponiveis|length %}
+  <p style="color:var(--cinza); font-size:0.82rem;">
+    Mostrando {{ disponiveis|length }} de {{ total_disponiveis }} disponíveis
+    {% if busca_disp %}para "{{ busca_disp }}"{% endif %} —
+    use a busca acima pra encontrar um animal específico.
+  </p>
+  {% endif %}
+
   {% if disponiveis %}
-  <form method="post">
+  <form method="post" id="form-atribuir">
     <p style="color:var(--cinza); font-size:0.85rem;">
       Marque até {{ vagas }} animal(is) e clique em "Atribuir selecionados".
     </p>
@@ -82,7 +99,7 @@
         {% for a in disponiveis %}
         <tr>
           <td class="nowrap">
-            <input type="checkbox" name="animal_id" value="{{ a['id'] }}" style="width:18px; height:18px;">
+            <input type="checkbox" name="animal_id" value="{{ a['id'] }}" class="check-animal" style="width:18px; height:18px;">
           </td>
           <td class="nowrap">
             {% if a['foto_1'] %}
@@ -105,8 +122,49 @@
     </div>
   </form>
   {% else %}
-    <div class="empty">Não há animais disponíveis no momento (todos já foram alocados).</div>
+    <div class="empty">
+      {% if busca_disp %}
+        Nenhum animal disponível encontrado para "{{ busca_disp }}".
+      {% else %}
+        Não há animais disponíveis no momento (todos já foram alocados).
+      {% endif %}
+    </div>
   {% endif %}
 </div>
+
+<!-- Barra flutuante: some ate o usuario marcar o 1o checkbox, pra nao
+     precisar rolar ate o final da lista pra confirmar a selecao. -->
+<div id="barra-selecao" class="barra-selecao-flutuante" style="display:none;">
+  <span id="contagem-selecao">0 selecionado(s)</span>
+  <button type="submit" form="form-atribuir" class="btn btn-primary btn-sm">✔ Atribuir selecionados</button>
+</div>
+<style>
+  .barra-selecao-flutuante {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--verde-escuro); color: #fff;
+    padding: 12px 20px; display: flex; align-items: center; justify-content: center;
+    gap: 16px; box-shadow: 0 -3px 10px rgba(0,0,0,0.2); z-index: 50;
+    border-top: 3px solid var(--terra);
+  }
+  @media (max-width: 900px) { .barra-selecao-flutuante { left: 0; } }
+</style>
+<script>
+  (function () {
+    var checkboxes = document.querySelectorAll('.check-animal');
+    var barra = document.getElementById('barra-selecao');
+    var contagem = document.getElementById('contagem-selecao');
+    function atualizar() {
+      var marcados = document.querySelectorAll('.check-animal:checked').length;
+      if (marcados > 0) {
+        barra.style.display = 'flex';
+        contagem.textContent = marcados + ' selecionado' + (marcados > 1 ? 's' : '');
+      } else {
+        barra.style.display = 'none';
+      }
+    }
+    checkboxes.forEach(function (cb) { cb.addEventListener('change', atualizar); });
+    atualizar();
+  })();
+</script>
 {% endif %}
 {% endblock %}

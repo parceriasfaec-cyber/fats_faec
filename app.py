@@ -665,9 +665,23 @@ def animais_produtor(pid):
     atribuidos = conn.execute(
         "SELECT * FROM animais WHERE produtor_id = ? ORDER BY brinco_faec", (pid,)
     ).fetchall()
-    disponiveis = conn.execute(
-        "SELECT * FROM animais WHERE status = 'disponivel' ORDER BY brinco_faec"
-    ).fetchall()
+
+    busca_disp = request.args.get("q_animal", "").strip()
+    LIMITE_LISTAGEM_DISPONIVEIS = 50
+    if busca_disp:
+        like = f"%{busca_disp}%"
+        disponiveis_todos = conn.execute(
+            "SELECT * FROM animais WHERE status = 'disponivel' "
+            "AND (brinco_faec ILIKE ? OR brinco_fazenda ILIKE ?) "
+            "ORDER BY brinco_faec",
+            (like, like),
+        ).fetchall()
+    else:
+        disponiveis_todos = conn.execute(
+            "SELECT * FROM animais WHERE status = 'disponivel' ORDER BY brinco_faec"
+        ).fetchall()
+    total_disponiveis = len(disponiveis_todos)
+    disponiveis = disponiveis_todos[:LIMITE_LISTAGEM_DISPONIVEIS]
     conn.close()
 
     vagas = max(0, LIMITE_ANIMAIS_POR_PRODUTOR - len(atribuidos))
@@ -676,6 +690,9 @@ def animais_produtor(pid):
         produtor=produtor,
         atribuidos=atribuidos,
         disponiveis=disponiveis,
+        total_disponiveis=total_disponiveis,
+        busca_disp=busca_disp,
+        limite_listagem=LIMITE_LISTAGEM_DISPONIVEIS,
         vagas=vagas,
         limite=LIMITE_ANIMAIS_POR_PRODUTOR,
     )
