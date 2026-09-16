@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Relatório - FATS{% endblock %}
+{% block content %}
+
+<div class="toolbar">
+  <h2 style="margin:0; color:var(--verde-escuro);">Relatório de Produtores e Atendimentos</h2>
+  <button type="button" class="btn btn-secondary" onclick="window.print()">🖨 Imprimir</button>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:16px; margin-bottom:20px;">
+  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Produtores cadastrados</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.3rem; font-weight:700; color:var(--verde-escuro);">{{ total_geral }}</div>
+  </div>
+  <div class="card card-stat acento-terra" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Atendimentos registrados</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.3rem; font-weight:700; color:var(--terra);">{{ total_atendimentos }}</div>
+  </div>
+  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Animais cadastrados</div>
+    <div style="font-family:var(--fonte-titulo); font-size:2.3rem; font-weight:700; color:var(--verde);">{{ total_animais }}</div>
+  </div>
+</div>
+
+<div class="card" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+  <form method="get" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+    <div style="min-width:220px;">
+      <label for="filtro-municipio">Município</label>
+      <select id="filtro-municipio" name="municipio">
+        <option value="">Todos os municípios</option>
+        {% for municipio in municipios %}
+        <option value="{{ municipio }}" {% if municipio == municipio_filtro %}selected{% endif %}>{{ municipio }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width:240px;">
+      <label for="filtro-motivo">Motivo da visita</label>
+      <select id="filtro-motivo" name="motivo">
+        <option value="">Todos os motivos</option>
+        {% for motivo in motivos_visita %}
+        <option value="{{ motivo }}" {% if motivo == motivo_filtro %}selected{% endif %}>{{ motivo }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Filtrar</button>
+  </form>
+</div>
+
+<script>
+  document.querySelectorAll('#filtro-municipio, #filtro-motivo').forEach(function (filtro) {
+    filtro.addEventListener('change', function () {
+      this.form.submit();
+    });
+  });
+</script>
+
+<div class="card">
+  <div class="section-title">Resumo por município</div>
+  <div class="tabela-scroll">
+  <table class="list">
+    <thead>
+      <tr><th>Município</th><th>Produtores</th><th>Animais</th><th>Com visita registrada</th></tr>
+    </thead>
+    <tbody>
+      {% for municipio, resumo in resumo_por_municipio %}
+      <tr>
+        <td>{{ municipio|upper }}</td>
+        <td>{{ resumo.total }}</td>
+        <td>{{ resumo.animais }}</td>
+        <td>{{ resumo.visitados }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="empty">Nenhum município encontrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="card" style="padding:0; overflow:hidden;">
+  <div style="padding:20px 24px 0;" class="section-title">Detalhamento dos produtores</div>
+  {% if produtores %}
+  <div class="tabela-scroll">
+  <table class="list">
+    <thead>
+      <tr>
+        <th class="col-principal">Produtor / Propriedade</th>
+        <th>Município</th>
+        <th>Animais</th>
+        <th>Última visita</th>
+        <th>Motivo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for produtor in produtores %}
+      <tr>
+        <td class="col-principal">
+          <a class="link-produtor" href="{{ url_for('ficha', pid=produtor.id) }}">{{ produtor.nome_produtor|upper }}</a>
+          <div style="font-size:0.78rem; color:var(--cinza);">{{ produtor.nome_propriedade|upper }}</div>
+        </td>
+        <td>{{ produtor.municipio|upper }}</td>
+        <td>{{ produtor.qtd_animais }}</td>
+        <td>{{ produtor.data_visita or '-' }}</td>
+        <td>{{ produtor.tipo_visita or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty" style="padding:40px 20px;">Nenhum produtor encontrado para os filtros selecionados.</div>
+  {% endif %}
+</div>
+{% endblock %}

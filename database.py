@@ -177,6 +177,9 @@ CREATE TABLE IF NOT EXISTS "FIV".visitas (
     -- pino de cinza, ou se ja e de uma etapa anterior daquele produtor.
     etapa INTEGER NOT NULL DEFAULT 1,
 
+    -- FALSE quando a visita foi desmarcada no mapa; o histórico permanece.
+    ativa BOOLEAN NOT NULL DEFAULT TRUE,
+
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -195,6 +198,22 @@ ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS etapa_atual INTEGER NOT NU
 -- Migracao: garante a coluna etapa em bancos que ja tinham a tabela
 -- visitas criada antes desta mudanca.
 ALTER TABLE "FIV".visitas ADD COLUMN IF NOT EXISTS etapa INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "FIV".visitas ADD COLUMN IF NOT EXISTS ativa BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Garante a primeira visita dos produtores antigos que ainda nao possuem
+-- nenhum registro no historico.
+INSERT INTO "FIV".visitas
+    (produtor_id, data_visita, tipo_visita, observacoes, etapa, ativa)
+SELECT p.id,
+       to_char(p.criado_em AT TIME ZONE 'America/Fortaleza', 'DD/MM/YYYY'),
+       'Cadastro / Ficha inicial',
+       'Realizar cadastro inicial dos produtores',
+       p.etapa_atual,
+       TRUE
+FROM "FIV".produtores p
+WHERE NOT EXISTS (
+    SELECT 1 FROM "FIV".visitas v WHERE v.produtor_id = p.id
+);
 
 -- Se voce ja tinha rodado a versao anterior desta migracao (que criava
 -- uma tabela "FIV".config com uma etapa global unica), ela nao e mais

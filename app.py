@@ -213,17 +213,23 @@ def _parse_coordenada(valor: str):
         return None
 
 
-def _ultimas_visitas_da_etapa(conn):
-    """Devolve {produtor_id: linha da ultima visita} considerando so a
-    visita mais recente de cada produtor QUE AINDA VALE pra etapa atual
-    dele (cada produtor guarda a sua propria etapa_atual)."""
+def _ultimas_visitas_ativas(conn, incluir_cadastro=True):
+    """Devolve a visita ativa mais recente de cada produtor."""
+    filtro_cadastro = ""
+    if not incluir_cadastro:
+        filtro_cadastro = "AND v.tipo_visita <> 'Cadastro / Ficha inicial'"
     rows = conn.execute(
         "SELECT DISTINCT ON (v.produtor_id) v.produtor_id, v.data_visita, v.tipo_visita "
         "FROM visitas v "
-        "JOIN produtores p ON p.id = v.produtor_id AND v.etapa = p.etapa_atual "
+        "WHERE v.ativa = TRUE " + filtro_cadastro + " "
         "ORDER BY v.produtor_id, v.criado_em DESC, v.id DESC"
     ).fetchall()
     return {r["produtor_id"]: r for r in rows}
+
+
+def _ultimas_visitas_da_etapa(conn):
+    """Devolve visitas que concluem a atividade atual, sem o cadastro inicial."""
+    return _ultimas_visitas_ativas(conn, incluir_cadastro=False)
 
 
 @app.route("/mapa")
@@ -347,6 +353,84 @@ def painel_visitas():
     )
 
 
+@app.route("/relatorio")
+def relatorio():
+    municipio_filtro = request.args.get("municipio", "").strip()
+    status_filtro = request.args.get("status", "").strip()
+    motivo_filtro = request.args.get("motivo", "").strip()
+
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT p.id, p.nome_produtor, p.nome_propriedade, p.municipio, "
+        "COUNT(a.id) AS qtd_animais "
+        "FROM produtores p LEFT JOIN animais a ON a.produtor_id = p.id "
+        "GROUP BY p.id, p.nome_produtor, p.nome_propriedade, p.municipio "
+        "ORDER BY p.nome_produtor"
+    ).fetchall()
+    total_animais = conn.execute(
+        "SELECT COUNT(*) AS total FROM animais"
+    ).fetchone()["total"]
+    total_atendimentos = conn.execute(
+        "SELECT COUNT(*) AS total FROM visitas WHERE ativa = TRUE"
+    ).fetchone()["total"]
+    ultimas_visitas = _ultimas_visitas_ativas(conn)
+    conn.close()
+
+    municipios = sorted(set((row["municipio"] or "-") for row in rows))
+    resumo_por_municipio = {}
+    produtores = []
+    total_visitados = 0
+
+    for row in rows:
+        municipio = row["municipio"] or "-"
+        visita = ultimas_visitas.get(row["id"])
+        visitado = visita is not None
+        stats = resumo_por_municipio.setdefault(
+            municipio, {"total": 0, "visitados": 0, "pendentes": 0, "animais": 0}
+        )
+        stats["total"] += 1
+        stats["animais"] += row["qtd_animais"] or 0
+        stats["visitados" if visitado else "pendentes"] += 1
+        if visitado:
+            total_visitados += 1
+
+        if municipio_filtro and municipio != municipio_filtro:
+            continue
+        if status_filtro == "visitado" and not visitado:
+            continue
+        if status_filtro == "pendente" and visitado:
+            continue
+        motivo = (visita["tipo_visita"] if visita else "Cadastro / Ficha inicial") or "Cadastro / Ficha inicial"
+        if motivo_filtro and motivo != motivo_filtro:
+            continue
+
+        produtores.append({
+            "id": row["id"],
+            "nome_produtor": row["nome_produtor"] or "-",
+            "nome_propriedade": row["nome_propriedade"] or "-",
+            "municipio": municipio,
+            "qtd_animais": row["qtd_animais"] or 0,
+            "visitado": visitado,
+            "data_visita": (visita["data_visita"] if visita else "") or "",
+            "tipo_visita": motivo,
+        })
+
+    return render_template(
+        "relatorio.html",
+        produtores=produtores,
+        municipios=municipios,
+        municipio_filtro=municipio_filtro,
+        status_filtro=status_filtro,
+        motivo_filtro=motivo_filtro,
+        motivos_visita=sorted(set(TIPOS_VISITA + ["Cadastro / Ficha inicial"])),
+        total_geral=len(rows),
+        total_visitados=total_visitados,
+        total_atendimentos=total_atendimentos,
+        total_animais=total_animais,
+        resumo_por_municipio=sorted(resumo_por_municipio.items()),
+    )
+
+
 @app.route("/produtor/<int:pid>/nova_etapa", methods=["POST"])
 def nova_etapa_produtor(pid):
     """Avanca a etapa de visitas SO DESSE produtor: ele volta a aparecer
@@ -370,7 +454,7 @@ def nova_etapa_produtor(pid):
 
     etapa_atual = row["etapa_atual"] or 1
     ja_visitado = conn.execute(
-        "SELECT 1 FROM visitas WHERE produtor_id = ? AND etapa = ? LIMIT 1",
+        "SELECT 1 FROM visitas WHERE produtor_id = ? AND etapa = ? AND ativa = TRUE LIMIT 1",
         (pid, etapa_atual),
     ).fetchone()
 
@@ -411,7 +495,7 @@ def nova_etapa_lote():
 
     condicao_visitado = (
         "EXISTS (SELECT 1 FROM visitas v WHERE v.produtor_id = produtores.id "
-        "AND v.etapa = produtores.etapa_atual)"
+        "AND v.etapa = produtores.etapa_atual AND v.ativa = TRUE)"
     )
 
     conn = get_connection()
@@ -617,6 +701,18 @@ def nova_visita(pid):
     observacoes = (request.form.get("observacoes") or "").strip()
     etapa_do_produtor = row["etapa_atual"] or 1
 
+    motivo_existente = conn.execute(
+        "SELECT 1 FROM visitas WHERE produtor_id = ? AND tipo_visita = ? LIMIT 1",
+        (pid, tipo_visita),
+    ).fetchone()
+    if motivo_existente:
+        conn.close()
+        mensagem = "Este motivo de visita já foi registrado para este produtor."
+        if eh_ajax:
+            return {"ok": False, "motivo": "duplicado", "mensagem": mensagem}, 409
+        flash(mensagem, "error")
+        return redirect(url_for("visitas_produtor", pid=pid))
+
     conn.execute(
         "INSERT INTO visitas (produtor_id, data_visita, tipo_visita, observacoes, etapa) "
         "VALUES (?, ?, ?, ?, ?)",
@@ -635,6 +731,41 @@ def nova_visita(pid):
 
     flash("Visita registrada com sucesso.")
     return redirect(url_for("visitas_produtor", pid=pid))
+
+
+@app.route("/ficha/<int:pid>/visita/desmarcar", methods=["POST"])
+def desmarcar_visita(pid):
+    """Desfaz somente a visita mais recente da etapa atual do produtor."""
+    eh_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT etapa_atual FROM produtores WHERE id = ?", (pid,)
+    ).fetchone()
+    if row is None:
+        conn.close()
+        abort(404)
+
+    visita = conn.execute(
+        "SELECT id FROM visitas WHERE produtor_id = ? AND etapa = ? AND ativa = TRUE "
+        "ORDER BY criado_em DESC, id DESC LIMIT 1",
+        (pid, row["etapa_atual"] or 1),
+    ).fetchone()
+    if visita is None:
+        conn.close()
+        if eh_ajax:
+            return {"ok": False, "motivo": "nao_visitado"}, 409
+        flash("Essa propriedade não está marcada como visitada.", "error")
+        return redirect(url_for("mapa"))
+
+    conn.execute("UPDATE visitas SET ativa = FALSE WHERE id = ?", (visita["id"],))
+    conn.commit()
+    conn.close()
+
+    if eh_ajax:
+        return {"ok": True, "produtor_id": pid}
+    flash("Visita desmarcada.", "success")
+    return redirect(url_for("mapa"))
 
 
 @app.route("/visita/<int:vid>/excluir", methods=["POST"])
@@ -760,9 +891,20 @@ def _salvar(pid):
         if pid is None:
             cols = ", ".join(FIELDS)
             placeholders = ", ".join(["?"] * len(FIELDS))
-            conn.execute(
-                f"INSERT INTO produtores ({cols}) VALUES ({placeholders})",
+            novo_produtor = conn.execute(
+                f"INSERT INTO produtores ({cols}) VALUES ({placeholders}) RETURNING id",
                 [dados[f] for f in FIELDS],
+            ).fetchone()
+            conn.execute(
+                "INSERT INTO visitas "
+                "(produtor_id, data_visita, tipo_visita, observacoes, etapa, ativa) "
+                "VALUES (?, ?, ?, ?, 1, TRUE)",
+                (
+                    novo_produtor["id"],
+                    datetime.now(ZoneInfo("America/Fortaleza")).strftime("%d/%m/%Y"),
+                    "Cadastro / Ficha inicial",
+                    "Realizar cadastro inicial dos produtores",
+                ),
             )
             flash("Produtor cadastrado com sucesso.", "success")
         else:
@@ -831,9 +973,20 @@ def sincronizar():
             conn = get_connection()
             cols = ", ".join(FIELDS)
             placeholders = ", ".join(["?"] * len(FIELDS))
-            conn.execute(
-                f"INSERT INTO produtores ({cols}) VALUES ({placeholders})",
+            novo_produtor = conn.execute(
+                f"INSERT INTO produtores ({cols}) VALUES ({placeholders}) RETURNING id",
                 [dados[f] for f in FIELDS],
+            ).fetchone()
+            conn.execute(
+                "INSERT INTO visitas "
+                "(produtor_id, data_visita, tipo_visita, observacoes, etapa, ativa) "
+                "VALUES (?, ?, ?, ?, 1, TRUE)",
+                (
+                    novo_produtor["id"],
+                    datetime.now(ZoneInfo("America/Fortaleza")).strftime("%d/%m/%Y"),
+                    "Cadastro / Ficha inicial",
+                    "Realizar cadastro inicial dos produtores",
+                ),
             )
             conn.commit()
             conn.close()

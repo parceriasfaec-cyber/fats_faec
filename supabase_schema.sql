@@ -119,6 +119,9 @@ CREATE TABLE IF NOT EXISTS "FIV".visitas (
     -- ritmo - não é uma contagem única pro sistema inteiro.
     etapa INTEGER NOT NULL DEFAULT 1,
 
+    -- FALSE quando a visita foi desmarcada no mapa; o histórico permanece.
+    ativa BOOLEAN NOT NULL DEFAULT TRUE,
+
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -150,6 +153,7 @@ CREATE TABLE IF NOT EXISTS "FIV".visitas (
     tipo_visita TEXT,
     observacoes TEXT,
     etapa INTEGER NOT NULL DEFAULT 1,
+    ativa BOOLEAN NOT NULL DEFAULT TRUE,
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_visitas_produtor ON "FIV".visitas (produtor_id);
@@ -161,6 +165,22 @@ CREATE INDEX IF NOT EXISTS idx_visitas_etapa ON "FIV".visitas (etapa);
 -- atual, então times diferentes podem avançar em ritmos diferentes.
 ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS etapa_atual INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE "FIV".visitas ADD COLUMN IF NOT EXISTS etapa INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "FIV".visitas ADD COLUMN IF NOT EXISTS ativa BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Garante a primeira visita dos produtores antigos que ainda nao possuem
+-- nenhum registro no historico.
+INSERT INTO "FIV".visitas
+    (produtor_id, data_visita, tipo_visita, observacoes, etapa, ativa)
+SELECT p.id,
+       to_char(p.criado_em AT TIME ZONE 'America/Fortaleza', 'DD/MM/YYYY'),
+       'Cadastro / Ficha inicial',
+       'Realizar cadastro inicial dos produtores',
+       p.etapa_atual,
+       TRUE
+FROM "FIV".produtores p
+WHERE NOT EXISTS (
+    SELECT 1 FROM "FIV".visitas v WHERE v.produtor_id = p.id
+);
 
 -- Se você já tinha rodado uma versão anterior desta migração que criava
 -- uma tabela "FIV".config com uma etapa global única, ela não é mais

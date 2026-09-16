@@ -67,7 +67,6 @@
         <th class="nowrap">Data</th>
         <th>Motivo</th>
         <th>Observações</th>
-        <th class="nowrap">Etapa</th>
         <th class="actions"></th>
       </tr>
     </thead>
@@ -77,8 +76,10 @@
         <td class="nowrap">{{ visita['data_visita'] or '-' }}</td>
         <td>{{ visita['tipo_visita'] or '-' }}</td>
         <td>{{ visita['observacoes'] or '-' }}</td>
-        <td class="nowrap">{{ visita['etapa'] }}</td>
         <td class="actions">
+          {% if not visita['ativa'] %}
+          <span class="flash aviso" style="display:inline-block; padding:2px 8px; margin:0 8px 0 0;">Desmarcada</span>
+          {% endif %}
           <form method="post" action="{{ url_for('excluir_visita', vid=visita['id']) }}" onsubmit="return confirm('Excluir esta visita?');">
             <button type="submit" class="btn btn-danger-ghost btn-sm">🗑 Excluir</button>
           </form>

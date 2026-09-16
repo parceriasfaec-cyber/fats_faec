@@ -377,6 +377,9 @@
       <a href="{{ url_for('painel_visitas') }}" class="{{ 'ativo' if request.endpoint in ('painel_visitas', 'visitas_produtor') else '' }}">
         <span class="icone">📋</span> Visitas
       </a>
+      <a href="{{ url_for('relatorio') }}" class="{{ 'ativo' if request.endpoint == 'relatorio' else '' }}">
+        <span class="icone">📊</span> Relatório
+      </a>
       <a href="{{ url_for('dashboard') }}" class="{{ 'ativo' if request.endpoint == 'dashboard' else '' }}">
         <span class="icone">📊</span> Dashboard
       </a>

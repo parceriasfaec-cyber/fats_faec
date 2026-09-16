@@ -29,10 +29,6 @@
       <option value="">Todos os municípios</option>
     </select>
   </div>
-  <div>
-    <label style="display:block; visibility:hidden;">.</label>
-    <button id="btn-nova-etapa" type="button" class="btn btn-secondary btn-sm" title="Faz as propriedades do filtro acima voltarem a aparecer verdes (não visitadas)">🔄 Iniciar nova etapa</button>
-  </div>
   <div style="min-width:260px;">
     <label for="filtro-produtor">Ir direto para um Produtor</label>
     <select id="filtro-produtor">
@@ -69,6 +65,19 @@
     <button id="btn-limpar-rota" class="btn btn-secondary" type="button" style="display:none;">Limpar rota</button>
   </div>
 </div>
+
+<details id="selecao-produtores-rota" class="card" style="display:none;">
+  <summary style="cursor:pointer; font-weight:600; color:var(--verde-escuro);">
+    Propriedades para visitar nesta rota
+    <span id="selecao-rota-contador" style="float:right; color:var(--cinza); font-size:0.85rem; font-weight:400;"></span>
+  </summary>
+  <div style="display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 8px; align-items:center;">
+    <input id="busca-selecao-rota" type="search" placeholder="Buscar produtor ou propriedade..." style="flex:1; min-width:240px;">
+    <button id="btn-selecionar-todos-rota" type="button" class="btn btn-secondary btn-sm">Selecionar todos</button>
+    <button id="btn-limpar-selecao-rota" type="button" class="btn btn-secondary btn-sm">Limpar seleção</button>
+  </div>
+  <div id="lista-selecao-rota" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:4px 16px; max-height:230px; overflow-y:auto; padding-right:8px;"></div>
+</details>
 
 <div id="destino-mapa-aviso" class="card" style="display:none; background:#fff4e5;">
   📍 Clique em qualquer ponto do mapa para marcar o destino final da rota.
@@ -152,19 +161,31 @@
   // qualquer marcador de produtor (tanto no pino normal quanto numa
   // parada numerada de uma rota ja calculada).
   function construirWidgetVisitaRapida(p) {
-    const opcoesMotivo = tiposVisita.map(function (t) {
-      return '<option value="' + t.replace(/"/g, '&quot;') + '">' + t + '</option>';
+    const opcoesMotivo = tiposVisita.map(function (tipo) {
+      return '<option value="' + tipo.replace(/"/g, '&quot;') + '">' + tipo + '</option>';
     }).join('');
 
     return (
       '<div style="margin-top:8px; padding-top:8px; border-top:1px solid #eee;">' +
-      '<select id="motivo-rapido-' + p.id + '" style="width:100%; font-size:0.82em; margin-bottom:6px; padding:2px;">' +
+      '<select id="motivo-rapido-' + p.id + '" style="width:100%; font-size:0.82em; margin-bottom:6px; padding:4px;">' +
+      '<option value="">Selecione o motivo da visita...</option>' +
       opcoesMotivo +
       '</select>' +
       '<button type="button" onclick="registrarVisitaRapida(' + p.id + ')" ' +
       'style="width:100%; background:#2f5233; color:#fff; border:none; border-radius:4px; padding:6px; font-size:0.82em; cursor:pointer;">' +
       '✔ Marcar como visitado (hoje)</button>' +
       '<div id="msg-visita-' + p.id + '" style="font-size:0.78em; color:var(--cinza); margin-top:4px;"></div>' +
+      '</div>'
+    );
+  }
+
+  function construirWidgetDesmarcarVisita(p) {
+    return (
+      '<div style="margin-top:8px; padding-top:8px; border-top:1px solid #eee;">' +
+      '<button type="button" onclick="desmarcarVisitaRapida(' + p.id + ')" ' +
+      'style="width:100%; background:#fff; color:#a8571e; border:1px solid #a8571e; border-radius:4px; padding:6px; font-size:0.82em; cursor:pointer;">' +
+      'Desmarcar como visitado</button>' +
+      '<div id="msg-desmarcar-' + p.id + '" style="font-size:0.78em; color:var(--cinza); margin-top:4px;"></div>' +
       '</div>'
     );
   }
@@ -181,61 +202,31 @@
       (p.visitado
         ? '<span style="color:#9a9a9a;font-size:0.85em;">✔ Já visitado' +
           (p.data_visita ? ' em ' + p.data_visita : '') +
-          (p.tipo_visita ? ' (' + p.tipo_visita + ')' : '') + '</span><br>' +
-          '<button type="button" onclick="iniciarNovaEtapaProdutor(' + p.id + ')" ' +
-          'style="background:none; border:none; color:#a8571e; font-size:0.78em; padding:0; margin-top:2px; cursor:pointer; text-decoration:underline;">' +
-          '🔄 Iniciar nova etapa (só este produtor)</button><br>'
+          (p.tipo_visita ? ' (' + p.tipo_visita + ')' : '') + '</span><br>'
         : '') +
       '<a href="/ficha/' + p.id + '" target="_blank" style="color:#a8571e;">Ver ficha completa</a>' +
-      construirWidgetVisitaRapida(p) +
+      (p.visitado ? construirWidgetDesmarcarVisita(p) : construirWidgetVisitaRapida(p)) +
       '</div>'
     );
   }
-
-  // Avanca a etapa de um unico produtor (ele volta a aparecer verde), sem
-  // afetar nenhum outro - pra quando so uma propriedade especifica esta
-  // pronta pra uma nova rodada, mesmo que o resto ainda nao esteja.
-  window.iniciarNovaEtapaProdutor = function (id) {
-    if (!confirm('Iniciar uma nova etapa só para este produtor? Ele volta a aparecer verde (não visitado). O histórico de visitas antigas dele continua salvo.')) {
-      return;
-    }
-    fetch('/produtor/' + id + '/nova_etapa', {
-      method: 'POST',
-      headers: { 'X-Requested-With': 'XMLHttpRequest' },
-    })
-      .then(function (resp) {
-        if (!resp.ok) throw new Error('Falha ao salvar');
-        return resp.json();
-      })
-      .then(function (dados) {
-        const info = marcadoresPorId.get(id);
-        if (info) {
-          info.ponto.visitado = false;
-          info.ponto.data_visita = '';
-          info.ponto.tipo_visita = '';
-          info.ponto.etapa_atual = dados.etapa_atual;
-          info.marcador.setIcon(iconeVerde);
-          info.marcador.setPopupContent(construirPopupProdutor(info.ponto));
-        }
-        popularDestinoProdutores(seletorMunicipio.value);
-      })
-      .catch(function () {
-        alert('Erro ao iniciar nova etapa. Tente novamente.');
-      });
-  };
 
   // Registra, com um unico clique no popup do mapa, uma visita de hoje
   // pra esse produtor - sem sair da tela do mapa. Usa a mesma rota que a
   // tela de Visitas usa, so que via fetch (sem recarregar a pagina).
   window.registrarVisitaRapida = function (id) {
-    const selectMotivo = document.getElementById('motivo-rapido-' + id);
+    const seletorMotivo = document.getElementById('motivo-rapido-' + id);
     const msg = document.getElementById('msg-visita-' + id);
-    const motivo = selectMotivo ? selectMotivo.value : '';
+    const motivo = seletorMotivo ? seletorMotivo.value : '';
     const hoje = new Date();
     const dataBr = String(hoje.getDate()).padStart(2, '0') + '/' +
       String(hoje.getMonth() + 1).padStart(2, '0') + '/' + hoje.getFullYear();
 
     if (msg) msg.textContent = 'Salvando...';
+
+    if (!motivo) {
+      if (msg) msg.textContent = 'Selecione o motivo da visita.';
+      return;
+    }
 
     const corpo = new URLSearchParams();
     corpo.set('data_visita', dataBr);
@@ -251,7 +242,11 @@
       body: corpo.toString(),
     })
       .then(function (resp) {
-        if (!resp.ok) throw new Error('Falha ao salvar');
+        if (!resp.ok) {
+          return resp.json().then(function (dados) {
+            throw new Error(dados.mensagem || 'Falha ao salvar');
+          });
+        }
         return resp.json();
       })
       .then(function (dados) {
@@ -266,6 +261,35 @@
         }
         if (msg) msg.textContent = '✔ Visita registrada!';
         // Mantem os combos de destino da rota atualizados com o novo status.
+        popularDestinoProdutores(seletorMunicipio.value);
+      })
+      .catch(function (erro) {
+        if (msg) msg.textContent = erro.message || 'Erro ao salvar. Tente novamente.';
+      });
+  };
+
+  window.desmarcarVisitaRapida = function (id) {
+    const msg = document.getElementById('msg-desmarcar-' + id);
+    if (!confirm('Desmarcar esta propriedade como visitada?')) return;
+    if (msg) msg.textContent = 'Salvando...';
+
+    fetch('/ficha/' + id + '/visita/desmarcar', {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('Falha ao salvar');
+        return resp.json();
+      })
+      .then(function () {
+        const info = marcadoresPorId.get(id);
+        if (info) {
+          info.ponto.visitado = false;
+          info.ponto.data_visita = '';
+          info.ponto.tipo_visita = '';
+          info.marcador.setIcon(iconeVerde);
+          info.marcador.setPopupContent(construirPopupProdutor(info.ponto));
+        }
         popularDestinoProdutores(seletorMunicipio.value);
       })
       .catch(function () {
@@ -378,35 +402,7 @@
     popularDestinoProdutores(seletorMunicipio.value);
     atualizarMarcadoresVisiveis();
     atualizarCartoes(seletorMunicipio.value);
-  });
-
-  // ---- Iniciar nova etapa (em lote, respeitando o filtro de municipio) ----
-  // Cada produtor guarda sua propria etapa - isso so avanca a etapa dos
-  // produtores do municipio filtrado (ou de todos, se nenhum filtro
-  // estiver selecionado), sem afetar quem esta em outro municipio/etapa.
-  const btnNovaEtapa = document.getElementById('btn-nova-etapa');
-  btnNovaEtapa.addEventListener('click', function () {
-    const municipioSelecionado = seletorMunicipio.value;
-    const alvo = municipioSelecionado ? ('em ' + municipioSelecionado) : 'em TODOS os municípios';
-    const confirmado = confirm(
-      'Iniciar uma nova etapa de visitas para os produtores ' + alvo + '? ' +
-      'Eles vão voltar a aparecer verdes (não visitados) no mapa. ' +
-      'O histórico de visitas antigas continua salvo.'
-    );
-    if (!confirmado) return;
-
-    const corpo = new URLSearchParams();
-    if (municipioSelecionado) corpo.set('municipio', municipioSelecionado);
-
-    fetch('{{ url_for("nova_etapa_lote") }}', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: corpo.toString(),
-    }).then(function () {
-      location.reload();
-    }).catch(function () {
-      alert('Erro ao iniciar nova etapa. Tente novamente.');
-    });
+    renderizarSelecaoRota();
   });
 
   seletorProdutor.addEventListener('change', function () {
@@ -429,6 +425,12 @@
   const destinoMapaAviso = document.getElementById('destino-mapa-aviso');
   const btnCancelarDestinoMapa = document.getElementById('btn-cancelar-destino-mapa');
   const checkboxOcultarVisitados = document.getElementById('filtro-ocultar-visitados');
+  const selecaoRota = document.getElementById('selecao-produtores-rota');
+  const listaSelecaoRota = document.getElementById('lista-selecao-rota');
+  const contadorSelecaoRota = document.getElementById('selecao-rota-contador');
+  const buscaSelecaoRota = document.getElementById('busca-selecao-rota');
+  const btnSelecionarTodosRota = document.getElementById('btn-selecionar-todos-rota');
+  const btnLimparSelecaoRota = document.getElementById('btn-limpar-selecao-rota');
   const rotaStatus = document.getElementById('rota-status');
   const rotaStatusTexto = document.getElementById('rota-status-texto');
   const rotaPainel = document.getElementById('rota-painel');
@@ -442,6 +444,61 @@
   let marcadorDestino = null;
   let destinoMapaSelecionado = null; // {lat, lon} quando o destino e marcado clicando no mapa
   let aguardandoCliqueDestino = false;
+
+  function pontosDisponiveisParaSelecao() {
+    const municipioSelecionado = seletorMunicipio.value;
+    return pontos
+      .filter(function (p) {
+        const mesmoMunicipio = !municipioSelecionado || p.municipio === municipioSelecionado;
+        const podeVisitar = !checkboxOcultarVisitados.checked || !p.visitado;
+        return mesmoMunicipio && podeVisitar;
+      })
+      .sort(function (a, b) { return a.nome_produtor.localeCompare(b.nome_produtor); });
+  }
+
+  function atualizarContadorSelecaoRota() {
+    const marcados = listaSelecaoRota.querySelectorAll('input[type="checkbox"]:checked').length;
+    const total = listaSelecaoRota.querySelectorAll('input[type="checkbox"]').length;
+    contadorSelecaoRota.textContent = marcados + ' de ' + total + ' selecionadas';
+  }
+
+  function filtrarSelecaoRota() {
+    const busca = buscaSelecaoRota.value.trim().toLocaleLowerCase();
+    listaSelecaoRota.querySelectorAll('label').forEach(function (label) {
+      label.style.display = !busca || label.dataset.busca.indexOf(busca) >= 0 ? 'flex' : 'none';
+    });
+  }
+
+  function renderizarSelecaoRota() {
+    const disponiveis = pontosDisponiveisParaSelecao();
+    listaSelecaoRota.innerHTML = '';
+    selecaoRota.style.display = disponiveis.length ? 'block' : 'none';
+    disponiveis.forEach(function (p) {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex; align-items:center; gap:7px; padding:5px 0; cursor:pointer;';
+      label.dataset.busca = (p.nome_produtor + ' ' + p.nome_propriedade + ' ' + p.municipio).toLocaleLowerCase();
+      label.innerHTML = '<input type="checkbox" class="selecao-rota-produtor" value="' + p.id + '" checked style="width:auto; margin:0;">' +
+        '<span>' + p.nome_produtor + '<small style="display:block; color:var(--cinza);">' + p.nome_propriedade + ' — ' + p.municipio + '</small></span>';
+      listaSelecaoRota.appendChild(label);
+    });
+    listaSelecaoRota.querySelectorAll('input').forEach(function (checkbox) {
+      checkbox.addEventListener('change', atualizarContadorSelecaoRota);
+    });
+    atualizarContadorSelecaoRota();
+    filtrarSelecaoRota();
+  }
+
+  btnSelecionarTodosRota.addEventListener('click', function () {
+    listaSelecaoRota.querySelectorAll('input').forEach(function (checkbox) { checkbox.checked = true; });
+    atualizarContadorSelecaoRota();
+  });
+  btnLimparSelecaoRota.addEventListener('click', function () {
+    listaSelecaoRota.querySelectorAll('input').forEach(function (checkbox) { checkbox.checked = false; });
+    atualizarContadorSelecaoRota();
+  });
+  checkboxOcultarVisitados.addEventListener('change', renderizarSelecaoRota);
+  buscaSelecaoRota.addEventListener('input', filtrarSelecaoRota);
+  renderizarSelecaoRota();
 
   // Coordenadas aproximadas do centro de Fortaleza, usadas quando o
   // usuario escolhe "Sair de Fortaleza" como ponto de partida.
@@ -580,6 +637,12 @@
       pontosBase = pontosBase.filter(function (p) { return !p.visitado; });
     }
 
+    const idsSelecionados = new Set(
+      Array.from(listaSelecaoRota.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(function (checkbox) { return Number(checkbox.value); })
+    );
+    pontosBase = pontosBase.filter(function (p) { return idsSelecionados.has(p.id); });
+
     const destinoEscolhido = obterDestinoSelecionado();
     if (seletorDestinoTipo.value === 'mapa' && !destinoEscolhido) {
       rotaStatus.style.display = 'block';
@@ -598,7 +661,11 @@
       pontosAlvo = pontosBase.filter(function (p) { return p.id !== destinoEscolhido.produtor.id; });
     }
 
-    if (pontosAlvo.length === 0 && !destinoEscolhido) return;
+    if (pontosAlvo.length === 0 && !destinoEscolhido) {
+      rotaStatus.style.display = 'block';
+      rotaStatusTexto.textContent = 'Selecione pelo menos uma propriedade para criar a rota.';
+      return;
+    }
 
     limparRota();
     rotaStatus.style.display = 'block';

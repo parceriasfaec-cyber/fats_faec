@@ -13,7 +13,7 @@
     <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde-escuro);">{{ total_geral }}</div>
   </div>
   <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Visitados (na etapa atual de cada um)</div>
+    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Visitados</div>
     <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde);">{{ total_visitados }}</div>
   </div>
   <div class="card card-stat acento-terra" style="text-align:center; margin-bottom:0;">
@@ -43,13 +43,6 @@
     </div>
   </form>
 
-  <form method="post" action="{{ url_for('nova_etapa_lote') }}"
-        onsubmit="return confirm('Iniciar uma nova etapa para {{ ('os produtores de ' + municipio_filtro) if municipio_filtro else 'TODOS os produtores do sistema' }}? Eles vão voltar a aparecer como pendentes. O histórico de visitas antigas continua salvo.');">
-    <input type="hidden" name="municipio" value="{{ municipio_filtro }}">
-    <button type="submit" class="btn btn-secondary btn-sm">
-      🔄 Iniciar nova etapa {{ ('(' + municipio_filtro + ')') if municipio_filtro else '(todos)' }}
-    </button>
-  </form>
 </div>
 
 <div class="card" style="padding:0; overflow:hidden;">
@@ -60,8 +53,6 @@
       <tr>
         <th class="col-principal">Produtor / Propriedade</th>
         <th class="col-principal">Município</th>
-        <th class="nowrap">Etapa</th>
-        <th>Status</th>
         <th>Última visita</th>
         <th class="actions">Ações</th>
       </tr>
@@ -74,14 +65,6 @@
           <div style="font-size:0.78rem; color:var(--cinza); font-weight:400;">{{ (p['nome_propriedade'])|upper }}</div>
         </td>
         <td>{{ (p['municipio'])|upper }}</td>
-        <td class="nowrap" style="text-align:center;">{{ p['etapa_atual'] }}</td>
-        <td class="nowrap">
-          {% if p['visitado'] %}
-            <span class="flash success" style="display:inline-block; padding:2px 8px; margin:0;">✔ Visitado</span>
-          {% else %}
-            <span class="flash aviso" style="display:inline-block; padding:2px 8px; margin:0;">⏳ Pendente</span>
-          {% endif %}
-        </td>
         <td class="nowrap">
           {% if p['data_visita'] %}
             {{ p['data_visita'] }}
@@ -93,10 +76,10 @@
         <td class="actions">
           <a class="btn btn-outline-terra btn-sm" title="Histórico de visitas" href="{{ url_for('visitas_produtor', pid=p['id']) }}">📋</a>
           {% if p['visitado'] %}
-          <form method="post" action="{{ url_for('nova_etapa_produtor', pid=p['id']) }}"
-                onsubmit="return confirm('Iniciar nova etapa só para {{ p['nome_produtor'] }}? Ele volta a aparecer como pendente.');"
+          <form method="post" action="{{ url_for('desmarcar_visita', pid=p['id']) }}"
+                onsubmit="return confirm('Desmarcar esta propriedade como visitada?');"
                 style="display:inline;">
-            <button type="submit" class="btn btn-secondary btn-sm">🔄 Nova etapa</button>
+            <button type="submit" class="btn btn-secondary btn-sm">Desmarcar</button>
           </form>
           {% endif %}
         </td>
