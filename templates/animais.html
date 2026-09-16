@@ -71,6 +71,9 @@
         </td>
         <td class="actions">
           <a class="btn btn-outline-terra btn-sm" href="{{ url_for('fotos_animal', aid=a['id']) }}">✏️ Editar</a>
+          <form method="post" action="{{ url_for('excluir_animal', aid=a['id']) }}" style="display:inline;" onsubmit="return confirm('Excluir este animal? Esta ação não pode ser desfeita.');">
+            <button type="submit" class="btn btn-danger-ghost btn-sm">🗑 Excluir</button>
+          </form>
         </td>
       </tr>
       {% endfor %}

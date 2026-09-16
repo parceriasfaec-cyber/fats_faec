@@ -1370,6 +1370,34 @@ def fotos_animal(aid):
     return render_template("fotos_animal.html", animal=animal)
 
 
+@app.route("/animais/<int:aid>/excluir", methods=["POST"])
+def excluir_animal(aid):
+    conn = get_connection()
+    animal = conn.execute(
+        "SELECT id, status, foto_1, foto_2, foto_3 FROM animais WHERE id = ?",
+        (aid,),
+    ).fetchone()
+    if animal is None:
+        conn.close()
+        abort(404)
+    if animal["status"] == "alocado":
+        conn.close()
+        flash("Desvincule o animal do produtor antes de excluí-lo.", "error")
+        return redirect(url_for("animais"))
+
+    conn.execute("DELETE FROM animais WHERE id = ?", (aid,))
+    conn.commit()
+    conn.close()
+    for campo in ("foto_1", "foto_2", "foto_3"):
+        if animal[campo]:
+            try:
+                excluir_arquivo(animal[campo])
+            except Exception:
+                pass
+    flash("Animal excluído com sucesso.", "success")
+    return redirect(url_for("animais"))
+
+
 @app.route("/animais")
 def animais():
     busca = request.args.get("q", "").strip()
