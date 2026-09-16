@@ -7,6 +7,10 @@
   <a href="{{ url_for('index') }}" class="btn btn-secondary">← Voltar para a lista</a>
 </div>
 
+{% if offline %}
+<div class="flash aviso">Modo offline: dados do último acesso carregados. As visitas serão sincronizadas quando a internet voltar.</div>
+{% endif %}
+
 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
   <div class="card card-stat" style="text-align:center; margin-bottom:0;">
     <div id="card-total-label" style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Total de Produtores</div>
@@ -259,7 +263,9 @@
           info.marcador.setIcon(iconeVisitado);
           info.marcador.setPopupContent(construirPopupProdutor(info.ponto));
         }
-        if (msg) msg.textContent = '✔ Visita registrada!';
+        if (msg) msg.textContent = dados.offline
+          ? '✔ Sem internet: visita guardada para sincronizar.'
+          : '✔ Visita registrada!';
         // Mantem os combos de destino da rota atualizados com o novo status.
         popularDestinoProdutores(seletorMunicipio.value);
       })

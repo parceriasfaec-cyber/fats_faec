@@ -14,9 +14,9 @@
     "Sincronizar agora" com a internet disponível.
   </p>
 
-  {% if pendentes %}
+  {% if pendentes or visitas_pendentes or animais_pendentes %}
   <form method="post" action="{{ url_for('sincronizar') }}" style="margin-bottom:16px;">
-    <button type="submit" class="btn btn-primary">🔄 Sincronizar agora ({{ pendentes|length }})</button>
+    <button type="submit" class="btn btn-primary">🔄 Sincronizar agora ({{ pendentes|length + visitas_pendentes|length + animais_pendentes|length }})</button>
   </form>
 
   <div class="tabela-scroll">
@@ -49,6 +49,62 @@
   </div>
   {% else %}
     <div class="empty">✅ Nenhum cadastro pendente. Tudo sincronizado!</div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0; color:var(--verde-escuro);">Visitas aguardando internet</h3>
+  {% if visitas_pendentes %}
+  <div class="tabela-scroll">
+  <table class="list">
+    <thead><tr><th>Produtor ID</th><th>Data</th><th>Motivo</th><th>Salvo em</th><th class="actions">Ações</th></tr></thead>
+    <tbody>
+      {% for visita in visitas_pendentes %}
+      <tr>
+        <td>{{ visita.produtor_id }}</td>
+        <td>{{ visita.data_visita }}</td>
+        <td>{{ visita.tipo_visita }}</td>
+        <td>{{ visita.criado_em_local }}</td>
+        <td class="actions">
+          <form method="post" action="{{ url_for('excluir_visita_pendente_rota', id_local=visita.id_local) }}" onsubmit="return confirm('Excluir esta visita da fila? Ela não será sincronizada.');">
+            <button type="submit" class="btn btn-secondary btn-sm">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">Nenhuma visita aguardando sincronização.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0; color:var(--verde-escuro);">Animais aguardando internet</h3>
+  {% if animais_pendentes %}
+  <div class="tabela-scroll">
+  <table class="list">
+    <thead><tr><th>Brinco FAEC</th><th>Brinco Fazenda</th><th>Peso</th><th>Salvo em</th><th class="actions">Ações</th></tr></thead>
+    <tbody>
+      {% for animal in animais_pendentes %}
+      <tr>
+        <td>{{ animal.brinco_faec }}</td>
+        <td>{{ animal.brinco_fazenda or '-' }}</td>
+        <td>{{ animal.peso or '-' }}</td>
+        <td>{{ animal.criado_em_local }}</td>
+        <td class="actions">
+          <form method="post" action="{{ url_for('excluir_animal_pendente_rota', id_local=animal.id_local) }}" onsubmit="return confirm('Excluir este animal da fila? Ele não será sincronizado.');">
+            <button type="submit" class="btn btn-secondary btn-sm">Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">Nenhum animal aguardando sincronização.</p>
   {% endif %}
 </div>
 

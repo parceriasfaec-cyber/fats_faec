@@ -51,6 +51,25 @@ def init_fila():
             {colunas_sql}
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS fila_visitas (
+            id_local INTEGER PRIMARY KEY AUTOINCREMENT,
+            produtor_id INTEGER NOT NULL,
+            data_visita TEXT,
+            tipo_visita TEXT,
+            observacoes TEXT,
+            criado_em_local TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS fila_animais (
+            id_local INTEGER PRIMARY KEY AUTOINCREMENT,
+            brinco_faec TEXT NOT NULL,
+            brinco_fazenda TEXT,
+            peso TEXT,
+            criado_em_local TEXT
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -118,3 +137,94 @@ def remover_da_fila(id_local: int):
             (FILA_FOTOS_DIR / row["foto_local_arquivo"]).unlink(missing_ok=True)
         except OSError:
             pass
+
+
+def adicionar_visita_na_fila(produtor_id: int, data_visita: str, tipo_visita: str, observacoes: str) -> int:
+    init_fila()
+    conn = _conectar()
+    cur = conn.execute(
+        "INSERT INTO fila_visitas "
+        "(produtor_id, data_visita, tipo_visita, observacoes, criado_em_local) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (produtor_id, data_visita, tipo_visita, observacoes,
+         datetime.now().strftime("%d/%m/%Y %H:%M")),
+    )
+    conn.commit()
+    id_local = cur.lastrowid
+    conn.close()
+    return id_local
+
+
+def listar_visitas_pendentes() -> list:
+    init_fila()
+    conn = _conectar()
+    rows = conn.execute("SELECT * FROM fila_visitas ORDER BY id_local").fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def contar_visitas_pendentes() -> int:
+    try:
+        init_fila()
+        conn = _conectar()
+        total = conn.execute("SELECT COUNT(*) AS n FROM fila_visitas").fetchone()["n"]
+        conn.close()
+        return total
+    except Exception:
+        return 0
+
+
+def remover_visita_da_fila(id_local: int):
+    conn = _conectar()
+    conn.execute("DELETE FROM fila_visitas WHERE id_local = ?", (id_local,))
+    conn.commit()
+    conn.close()
+
+
+def excluir_visita_pendente(id_local: int):
+    remover_visita_da_fila(id_local)
+
+
+def adicionar_animal_na_fila(brinco_faec: str, brinco_fazenda: str, peso: str) -> int:
+    init_fila()
+    conn = _conectar()
+    cur = conn.execute(
+        "INSERT INTO fila_animais "
+        "(brinco_faec, brinco_fazenda, peso, criado_em_local) VALUES (?, ?, ?, ?)",
+        (brinco_faec, brinco_fazenda or None, peso or None,
+         datetime.now().strftime("%d/%m/%Y %H:%M")),
+    )
+    conn.commit()
+    id_local = cur.lastrowid
+    conn.close()
+    return id_local
+
+
+def listar_animais_pendentes() -> list:
+    init_fila()
+    conn = _conectar()
+    rows = conn.execute("SELECT * FROM fila_animais ORDER BY id_local").fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def contar_animais_pendentes() -> int:
+    try:
+        init_fila()
+        conn = _conectar()
+        total = conn.execute("SELECT COUNT(*) AS n FROM fila_animais").fetchone()["n"]
+        conn.close()
+        return total
+    except Exception:
+        return 0
+
+
+def remover_animal_da_fila(id_local: int):
+    conn = _conectar()
+    conn.execute("DELETE FROM fila_animais WHERE id_local = ?", (id_local,))
+    conn.commit()
+    conn.close()
+
+
+def excluir_animal_pendente(id_local: int):
+    remover_animal_da_fila(id_local)

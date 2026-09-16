@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Modo Offline - FATS{% endblock %}
+{% block content %}
+<div class="card" style="max-width:720px; margin:40px auto; text-align:center;">
+  <h2 style="color:var(--verde-escuro);">Sistema em modo offline</h2>
+  <p style="color:var(--cinza);">
+    Não foi possível acessar o banco online. Isso é esperado quando não há internet.
+    Os registros feitos neste computador ficam guardados localmente até a conexão voltar.
+  </p>
+  <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:24px;">
+    <a href="{{ url_for('novo') }}" class="btn btn-primary">➕ Novo produtor</a>
+    <a href="{{ url_for('novo_animal') }}" class="btn btn-primary">🐄 Novo animal</a>
+    <a href="{{ url_for('mapa') }}" class="btn btn-primary">🗺️ Abrir mapa offline</a>
+    <a href="{{ url_for('fila') }}" class="btn btn-secondary">⏳ Ver fila offline</a>
+    <a href="{{ url_for('fila') }}" class="btn btn-secondary">🔄 Sincronizar</a>
+  </div>
+  <p style="margin-top:24px; font-size:0.85rem; color:var(--cinza);">
+    Quando a internet voltar, abra a fila e clique em “Sincronizar agora”.
+  </p>
+</div>
+{% endblock %}

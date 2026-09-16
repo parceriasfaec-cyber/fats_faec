@@ -394,7 +394,7 @@
     <main>
       {% if qtd_pendentes_offline and request.endpoint != 'fila' %}
         <div class="flash aviso" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-          <span>⏳ {{ qtd_pendentes_offline }} cadastro{{ 's' if qtd_pendentes_offline != 1 else '' }} feito{{ 's' if qtd_pendentes_offline != 1 else '' }} sem internet, aguardando envio.</span>
+          <span>⏳ {{ qtd_pendentes_offline }} registro{{ 's' if qtd_pendentes_offline != 1 else '' }} feito{{ 's' if qtd_pendentes_offline != 1 else '' }} sem internet, aguardando envio.</span>
           <a href="{{ url_for('fila') }}" class="btn btn-primary btn-sm" style="white-space:nowrap;">Ver e sincronizar</a>
         </div>
       {% endif %}

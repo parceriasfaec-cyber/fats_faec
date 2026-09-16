@@ -23,7 +23,11 @@ from supabase_storage import enviar_bytes, excluir_arquivo, BUCKET_ANIMAIS
 from campos import FIELDS, FIELD_LABELS, MUNICIPIOS_CEARA, TIPOS_VISITA
 from fila_offline import (
     adicionar_na_fila, listar_pendentes, contar_pendentes, remover_da_fila,
-    FILA_FOTOS_DIR,
+    adicionar_visita_na_fila, listar_visitas_pendentes,
+    contar_visitas_pendentes, remover_visita_da_fila,
+    adicionar_animal_na_fila, listar_animais_pendentes,
+    contar_animais_pendentes, remover_animal_da_fila,
+    excluir_visita_pendente, excluir_animal_pendente, FILA_FOTOS_DIR,
 )
 
 
@@ -34,6 +38,7 @@ from fila_offline import (
 # (ex: /var/data/fotos). Localmente, sem essa variavel, continua usando a
 # pasta "fotos" do lado do proprio app.py (como sempre foi).
 UPLOAD_DIR = Path(os.environ["FOTOS_DIR"]) if os.environ.get("FOTOS_DIR") else (_base_dir() / "fotos")
+MAPA_CACHE_PATH = _base_dir() / "mapa_offline.json"
 try:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 except OSError:
@@ -183,7 +188,11 @@ def _injetar_helpers():
         if nome.startswith("http://") or nome.startswith("https://"):
             return nome
         return url_for("foto", nome=nome)
-    return dict(foto_url=foto_url, qtd_pendentes_offline=contar_pendentes())
+    return dict(
+        foto_url=foto_url,
+        qtd_pendentes_offline=(contar_pendentes() + contar_visitas_pendentes() +
+                       contar_animais_pendentes()),
+    )
 
 # Campos considerados na checagem de "ficha completa". A foto fica de fora
 # porque nem sempre é possível tirar foto do produtor na hora da visita.
@@ -234,16 +243,33 @@ def _ultimas_visitas_da_etapa(conn):
 
 @app.route("/mapa")
 def mapa():
-    conn = get_connection()
-    rows = conn.execute(
-        "SELECT * FROM produtores ORDER BY nome_produtor"
-    ).fetchall()
-    # Uma consulta soh, trazendo a visita mais recente de cada produtor que
-    # ainda "vale" pra etapa atual DELE (cada produtor tem a sua propria
-    # etapa_atual - times/tecnicos diferentes avancam em ritmos diferentes,
-    # entao isso nao e um numero unico pro sistema inteiro).
-    ultimas_visitas = _ultimas_visitas_da_etapa(conn)
-    conn.close()
+    offline = False
+    try:
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT * FROM produtores ORDER BY nome_produtor"
+        ).fetchall()
+        ultimas_visitas = _ultimas_visitas_da_etapa(conn)
+        conn.close()
+    except Exception as erro:
+        if not _erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
+            raise
+        if not MAPA_CACHE_PATH.exists():
+            return render_template(
+                "mapa.html", pontos=[], pontos_json="[]",
+                total=0, qtd_no_mapa=0, sem_coordenadas=0,
+                municipio_stats_json="{}", tipos_visita_json=json.dumps(TIPOS_VISITA),
+                offline=True,
+            )
+        cache = json.loads(MAPA_CACHE_PATH.read_text(encoding="utf-8"))
+        return render_template(
+            "mapa.html",
+            pontos=cache["pontos"], pontos_json=json.dumps(cache["pontos"], ensure_ascii=False),
+            total=cache["total"], qtd_no_mapa=cache["qtd_no_mapa"],
+            sem_coordenadas=cache["sem_coordenadas"],
+            municipio_stats_json=json.dumps(cache["municipio_stats"], ensure_ascii=False),
+            tipos_visita_json=json.dumps(TIPOS_VISITA, ensure_ascii=False), offline=True,
+        )
 
     pontos = []
     sem_coordenadas = 0
@@ -283,6 +309,14 @@ def mapa():
             "tipo_visita": (ultima_visita["tipo_visita"] if ultima_visita else "") or "",
         })
 
+    try:
+        MAPA_CACHE_PATH.write_text(json.dumps({
+            "pontos": pontos, "total": len(rows), "qtd_no_mapa": len(pontos),
+            "sem_coordenadas": sem_coordenadas, "municipio_stats": municipio_stats,
+        }, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
     return render_template(
         "mapa.html",
         pontos=pontos,
@@ -292,6 +326,7 @@ def mapa():
         sem_coordenadas=sem_coordenadas,
         municipio_stats_json=json.dumps(municipio_stats, ensure_ascii=False),
         tipos_visita_json=json.dumps(TIPOS_VISITA, ensure_ascii=False),
+        offline=offline,
     )
 
 
@@ -582,7 +617,12 @@ def index():
     pagina = max(1, pagina)
     POR_PAGINA = 20
 
-    conn = get_connection()
+    try:
+        conn = get_connection()
+    except Exception as erro:
+        if not _erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
+            raise
+        return render_template("offline.html")
 
     condicoes = []
     params = []
@@ -690,36 +730,50 @@ def nova_visita(pid):
     via fetch() e so espera um JSON de volta (sem redirecionar)."""
     eh_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
-    conn = get_connection()
-    row = conn.execute("SELECT id, etapa_atual FROM produtores WHERE id = ?", (pid,)).fetchone()
-    if row is None:
-        conn.close()
-        abort(404)
-
     data_visita = (request.form.get("data_visita") or "").strip()
     tipo_visita = (request.form.get("tipo_visita") or "").strip()
     observacoes = (request.form.get("observacoes") or "").strip()
-    etapa_do_produtor = row["etapa_atual"] or 1
+    try:
+        conn = get_connection()
+        row = conn.execute("SELECT id, etapa_atual FROM produtores WHERE id = ?", (pid,)).fetchone()
+        if row is None:
+            conn.close()
+            abort(404)
 
-    motivo_existente = conn.execute(
-        "SELECT 1 FROM visitas WHERE produtor_id = ? AND tipo_visita = ? LIMIT 1",
-        (pid, tipo_visita),
-    ).fetchone()
-    if motivo_existente:
+        motivo_existente = conn.execute(
+            "SELECT 1 FROM visitas WHERE produtor_id = ? AND tipo_visita = ? LIMIT 1",
+            (pid, tipo_visita),
+        ).fetchone()
+        if motivo_existente:
+            conn.close()
+            mensagem = "Este motivo de visita já foi registrado para este produtor."
+            if eh_ajax:
+                return {"ok": False, "motivo": "duplicado", "mensagem": mensagem}, 409
+            flash(mensagem, "error")
+            return redirect(url_for("visitas_produtor", pid=pid))
+
+        conn.execute(
+            "INSERT INTO visitas (produtor_id, data_visita, tipo_visita, observacoes, etapa) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (pid, data_visita, tipo_visita, observacoes, row["etapa_atual"] or 1),
+        )
+        conn.commit()
         conn.close()
-        mensagem = "Este motivo de visita já foi registrado para este produtor."
+    except Exception as erro:
+        if not _erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
+            raise
+        id_local = adicionar_visita_na_fila(pid, data_visita, tipo_visita, observacoes)
         if eh_ajax:
-            return {"ok": False, "motivo": "duplicado", "mensagem": mensagem}, 409
-        flash(mensagem, "error")
+            return {
+                "ok": True,
+                "offline": True,
+                "fila_id": id_local,
+                "produtor_id": pid,
+                "data_visita": data_visita,
+                "tipo_visita": tipo_visita,
+            }
+        flash("Sem internet: visita guardada na fila local para sincronizar depois.", "aviso")
         return redirect(url_for("visitas_produtor", pid=pid))
-
-    conn.execute(
-        "INSERT INTO visitas (produtor_id, data_visita, tipo_visita, observacoes, etapa) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (pid, data_visita, tipo_visita, observacoes, etapa_do_produtor),
-    )
-    conn.commit()
-    conn.close()
 
     if eh_ajax:
         return {
@@ -816,7 +870,8 @@ def _erro_de_conexao(e: Exception) -> bool:
     """Detecta se a excecao e por falta de internet/conexao com o Supabase
     (para diferenciar de outros bugs de verdade, que devem continuar
     aparecendo normalmente como erro)."""
-    if isinstance(e, (psycopg2.OperationalError, requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+    if isinstance(e, (psycopg2.OperationalError, requests.exceptions.ConnectionError,
+                      requests.exceptions.Timeout, UnicodeDecodeError)):
         return True
     # psycopg2 as vezes embrulha o erro de conexao dentro de outro tipo -
     # olhamos tambem o texto da mensagem, por seguranca.
@@ -949,7 +1004,26 @@ def _salvar(pid):
 @app.route("/fila")
 def fila():
     pendentes = listar_pendentes()
-    return render_template("fila.html", pendentes=pendentes)
+    visitas_pendentes = listar_visitas_pendentes()
+    animais_pendentes = listar_animais_pendentes()
+    return render_template(
+        "fila.html", pendentes=pendentes, visitas_pendentes=visitas_pendentes,
+        animais_pendentes=animais_pendentes,
+    )
+
+
+@app.route("/fila/visita/excluir/<int:id_local>", methods=["POST"])
+def excluir_visita_pendente_rota(id_local):
+    excluir_visita_pendente(id_local)
+    flash("Visita removida da fila offline. Ela não será sincronizada.", "success")
+    return redirect(url_for("fila"))
+
+
+@app.route("/fila/animal/excluir/<int:id_local>", methods=["POST"])
+def excluir_animal_pendente_rota(id_local):
+    excluir_animal_pendente(id_local)
+    flash("Animal removido da fila offline. Ele não será sincronizado.", "success")
+    return redirect(url_for("fila"))
 
 
 @app.route("/sincronizar", methods=["POST"])
@@ -995,6 +1069,62 @@ def sincronizar():
         except Exception:
             falha += 1
 
+    visitas_sucesso = 0
+    visitas_falha = 0
+    for visita in listar_visitas_pendentes():
+        try:
+            conn = get_connection()
+            produtor = conn.execute(
+                "SELECT etapa_atual FROM produtores WHERE id = ?",
+                (visita["produtor_id"],),
+            ).fetchone()
+            if produtor is None:
+                conn.close()
+                raise RuntimeError("Produtor ainda não existe no servidor")
+            duplicada = conn.execute(
+                "SELECT 1 FROM visitas WHERE produtor_id = ? AND tipo_visita = ? LIMIT 1",
+                (visita["produtor_id"], visita["tipo_visita"]),
+            ).fetchone()
+            if not duplicada:
+                conn.execute(
+                    "INSERT INTO visitas "
+                    "(produtor_id, data_visita, tipo_visita, observacoes, etapa) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (
+                        visita["produtor_id"], visita["data_visita"],
+                        visita["tipo_visita"], visita["observacoes"],
+                        produtor["etapa_atual"] or 1,
+                    ),
+                )
+                conn.commit()
+            conn.close()
+            remover_visita_da_fila(visita["id_local"])
+            visitas_sucesso += 1
+        except Exception:
+            visitas_falha += 1
+
+    animais_sucesso = 0
+    animais_falha = 0
+    for animal in listar_animais_pendentes():
+        try:
+            conn = get_connection()
+            duplicado = conn.execute(
+                "SELECT 1 FROM animais WHERE brinco_faec = ? LIMIT 1",
+                (animal["brinco_faec"],),
+            ).fetchone()
+            if not duplicado:
+                conn.execute(
+                    "INSERT INTO animais (brinco_faec, brinco_fazenda, peso, status) "
+                    "VALUES (?, ?, ?, 'disponivel')",
+                    (animal["brinco_faec"], animal["brinco_fazenda"], animal["peso"]),
+                )
+                conn.commit()
+            conn.close()
+            remover_animal_da_fila(animal["id_local"])
+            animais_sucesso += 1
+        except Exception:
+            animais_falha += 1
+
     if sucesso:
         flash(f"{sucesso} cadastro(s) sincronizado(s) com sucesso!", "success")
     if falha:
@@ -1003,8 +1133,20 @@ def sincronizar():
             f"internet?). Eles continuam guardados aqui, tente de novo mais tarde.",
             "error",
         )
+    if visitas_sucesso:
+        flash(f"{visitas_sucesso} visita(s) sincronizada(s) com sucesso!", "success")
+    if visitas_falha:
+        flash(
+            f"{visitas_falha} visita(s) ainda aguardam internet ou o cadastro do produtor.",
+            "error",
+        )
+    if animais_sucesso:
+        flash(f"{animais_sucesso} animal(is) sincronizado(s) com sucesso!", "success")
+    if animais_falha:
+        flash(f"{animais_falha} animal(is) ainda aguardam internet.", "error")
     if not sucesso and not falha:
-        flash("Não há cadastros pendentes para sincronizar.", "success")
+        if not visitas_sucesso and not visitas_falha and not animais_sucesso and not animais_falha:
+            flash("Não há cadastros ou visitas pendentes para sincronizar.", "success")
     return redirect(url_for("fila"))
 
 
@@ -1150,16 +1292,23 @@ def novo_animal():
                 "peso": peso,
             })
 
-        conn = get_connection()
-        novo = conn.execute(
-            "INSERT INTO animais (brinco_faec, brinco_fazenda, peso, status) "
-            "VALUES (?, ?, ?, 'disponivel') RETURNING id",
-            (brinco_faec, brinco_fazenda or None, peso or None),
-        ).fetchone()
-        conn.commit()
-        conn.close()
-        flash("Animal cadastrado com sucesso.", "success")
-        return redirect(url_for("fotos_animal", aid=novo["id"]))
+        try:
+            conn = get_connection()
+            novo = conn.execute(
+                "INSERT INTO animais (brinco_faec, brinco_fazenda, peso, status) "
+                "VALUES (?, ?, ?, 'disponivel') RETURNING id",
+                (brinco_faec, brinco_fazenda or None, peso or None),
+            ).fetchone()
+            conn.commit()
+            conn.close()
+            flash("Animal cadastrado com sucesso.", "success")
+            return redirect(url_for("fotos_animal", aid=novo["id"]))
+        except Exception as erro:
+            if not _erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
+                raise
+            adicionar_animal_na_fila(brinco_faec, brinco_fazenda, peso)
+            flash("Sem internet: animal guardado na fila para sincronizar depois.", "aviso")
+            return redirect(url_for("fila"))
 
     return render_template("novo_animal.html", animal=None)
 
@@ -1224,7 +1373,12 @@ def fotos_animal(aid):
 @app.route("/animais")
 def animais():
     busca = request.args.get("q", "").strip()
-    conn = get_connection()
+    try:
+        conn = get_connection()
+    except Exception as erro:
+        if not _erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
+            raise
+        return render_template("offline.html")
     if busca:
         like = f"%{busca}%"
         rows = conn.execute(
@@ -1361,7 +1515,13 @@ def exportar_excel():
 
 
 if __name__ == "__main__":
-    init_db()
+    try:
+        init_db()
+        print(" Schema 'fiv' verificado no Supabase.")
+    except Exception as erro:
+        if not _erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
+            raise
+        print(" Sem internet: iniciando em modo offline.")
     if getattr(sys, "frozen", False):
         # Rodando como .exe: abre o navegador automaticamente e roda sem
         # o modo debug/reloader (que nao funciona dentro do PyInstaller).
