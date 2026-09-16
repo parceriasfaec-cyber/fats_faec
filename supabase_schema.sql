@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS "FIV".produtores (
     nome_tecnico         TEXT,
     cpf_tecnico          TEXT,
 
+    -- Etapa/rodada de visitas ATUAL deste produtor (cada produtor tem a
+    -- sua própria contagem independente - ver tabela visitas mais abaixo).
+    etapa_atual   INTEGER NOT NULL DEFAULT 1,
+
     criado_em     TIMESTAMP WITH TIME ZONE DEFAULT now(),
     atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -97,6 +101,29 @@ CREATE INDEX IF NOT EXISTS idx_produtores_nome       ON "FIV".produtores (nome_p
 CREATE INDEX IF NOT EXISTS idx_produtores_cpf         ON "FIV".produtores (cpf);
 CREATE INDEX IF NOT EXISTS idx_produtores_municipio   ON "FIV".produtores (municipio);
 CREATE INDEX IF NOT EXISTS idx_produtores_propriedade ON "FIV".produtores (nome_propriedade);
+
+-- 4. Histórico de visitas de cada produtor. Um mesmo produtor pode ter
+-- várias visitas ao longo do tempo (cadastro, entrega de material,
+-- acompanhamento dos animais, etc) - cada uma vira uma linha aqui.
+CREATE TABLE IF NOT EXISTS "FIV".visitas (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    produtor_id BIGINT NOT NULL REFERENCES "FIV".produtores(id) ON DELETE CASCADE,
+
+    data_visita TEXT,    -- data da visita, no formato dd/mm/aaaa
+    tipo_visita TEXT,    -- motivo da visita
+    observacoes TEXT,
+
+    -- Etapa do PRODUTOR (produtores.etapa_atual) no momento em que essa
+    -- visita foi registrada. Cada produtor avança de etapa no seu próprio
+    -- ritmo - não é uma contagem única pro sistema inteiro.
+    etapa INTEGER NOT NULL DEFAULT 1,
+
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_visitas_produtor ON "FIV".visitas (produtor_id);
+CREATE INDEX IF NOT EXISTS idx_visitas_etapa ON "FIV".visitas (etapa);
 
 -- ============================================================
 -- MIGRAÇÃO (rode só se você já tinha criado a tabela ANTES desta
@@ -112,5 +139,31 @@ ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS longitude TEXT;
 -- Adiciona o campo de peso na tabela de animais (rode este comando se
 -- a tabela FIV.animais já existia antes desta mudança).
 ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS peso TEXT;
+
+-- Cria a tabela de histórico de visitas (rode este comando se o banco já
+-- existia antes desta mudança - o CREATE TABLE lá em cima já resolve se o
+-- banco for novo).
+CREATE TABLE IF NOT EXISTS "FIV".visitas (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    produtor_id BIGINT NOT NULL REFERENCES "FIV".produtores(id) ON DELETE CASCADE,
+    data_visita TEXT,
+    tipo_visita TEXT,
+    observacoes TEXT,
+    etapa INTEGER NOT NULL DEFAULT 1,
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_visitas_produtor ON "FIV".visitas (produtor_id);
+CREATE INDEX IF NOT EXISTS idx_visitas_etapa ON "FIV".visitas (etapa);
+
+-- Adiciona a coluna de etapa_atual em produtores e a coluna de etapa em
+-- visitas (rode este comando se essas tabelas já existiam antes desta
+-- mudança, sem essas colunas). Cada produtor guarda a SUA própria etapa
+-- atual, então times diferentes podem avançar em ritmos diferentes.
+ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS etapa_atual INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "FIV".visitas ADD COLUMN IF NOT EXISTS etapa INTEGER NOT NULL DEFAULT 1;
+
+-- Se você já tinha rodado uma versão anterior desta migração que criava
+-- uma tabela "FIV".config com uma etapa global única, ela não é mais
+-- usada pelo sistema. Não precisa apagar - só não faz mais diferença.
 
 -- Pronto! A tabela FIV.produtores está criada e vazia, pronta para receber os dados.

@@ -127,3 +127,15 @@ MUNICIPIOS_CEARA = [
     "Viçosa do Ceará",
 ]
 
+# Tipos de visita pre-definidos, usados no historico de visitas de cada
+# produtor (uma propriedade pode ter varias visitas, cada uma com um motivo
+# diferente: cadastro, entrega de material, acompanhamento etc).
+TIPOS_VISITA = [
+    "Cadastro / Ficha inicial",
+    "Entrega de material",
+    "Acompanhamento dos animais",
+    "Acompanhamento reprodutivo (FIV)",
+    "Assistência técnica geral",
+    "Outro",
+]
+

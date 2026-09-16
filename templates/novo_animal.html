@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Novo Animal - FATS{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0;">➕ Novo Animal</h2>
+    <a href="{{ url_for('animais') }}" class="btn btn-ghost">← Voltar para animais</a>
+  </div>
+</div>
+
+<div class="card">
+  <form method="post">
+    <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap:20px;">
+      <div>
+        <label>Brinco FAEC</label>
+        <input type="text" name="brinco_faec" placeholder="Ex: 0001"
+               value="{{ animal['brinco_faec'] if animal else '' }}" required>
+      </div>
+      <div>
+        <label>Brinco Fazenda</label>
+        <input type="text" name="brinco_fazenda" placeholder="Ex: V 1452"
+               value="{{ animal['brinco_fazenda'] if animal else '' }}">
+      </div>
+      <div>
+        <label>Peso (kg)</label>
+        <input type="text" name="peso" class="decimal-digits" inputmode="decimal"
+               placeholder="Ex: 320,5" value="{{ animal['peso'] if animal else '' }}">
+      </div>
+    </div>
+    <p style="font-size:0.8rem; color:var(--cinza); margin-top:12px;">
+      As fotos do animal podem ser adicionadas depois de salvar, na tela de fotos dele.
+    </p>
+    <div class="form-actions">
+      <button class="btn btn-primary" type="submit">💾 Salvar</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.querySelectorAll('.decimal-digits').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var v = this.value.replace(/[^0-9,]/g, '');
+      var partes = v.split(',');
+      if (partes.length > 2) {
+        v = partes[0] + ',' + partes.slice(1).join('');
+      }
+      this.value = v;
+    });
+  });
+</script>
+{% endblock %}

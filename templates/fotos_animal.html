@@ -1,14 +1,12 @@
 {% extends "base.html" %}
-{% block title %}Fotos do animal {{ animal['brinco_faec'] }} - FATS{% endblock %}
+{% block title %}Ficha do animal {{ animal['brinco_faec'] }} - FATS{% endblock %}
 {% block content %}
 <div class="card">
   <div class="toolbar">
-    <h2 style="margin:0;">📷 Fotos do animal {{ animal['brinco_faec'] }}</h2>
+    <h2 style="margin:0;">🐄 Ficha do animal {{ animal['brinco_faec'] }}</h2>
     <a href="{{ url_for('animais') }}" class="btn btn-ghost">← Voltar para animais</a>
   </div>
   <p style="color:var(--cinza); margin-top:-6px;">
-    Brinco Fazenda: <strong>{{ animal['brinco_fazenda'] or '-' }}</strong>
-    &nbsp;•&nbsp;
     Status: <strong>{{ 'Alocado' if animal['status'] == 'alocado' else 'Disponível' }}</strong>
   </p>
 </div>
@@ -16,6 +14,14 @@
 <div class="card">
   <form method="post" enctype="multipart/form-data">
     <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:20px;">
+      <div>
+        <label>Brinco FAEC</label>
+        <input type="text" name="brinco_faec" value="{{ animal['brinco_faec'] or '' }}" required>
+      </div>
+      <div>
+        <label>Brinco Fazenda</label>
+        <input type="text" name="brinco_fazenda" value="{{ animal['brinco_fazenda'] or '' }}">
+      </div>
       <div>
         <label>Peso (kg)</label>
         <input type="text" name="peso" class="decimal-digits" inputmode="decimal"
@@ -58,4 +64,17 @@
     </div>
   </form>
 </div>
+
+<script>
+  document.querySelectorAll('.decimal-digits').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var v = this.value.replace(/[^0-9,]/g, '');
+      var partes = v.split(',');
+      if (partes.length > 2) {
+        v = partes[0] + ',' + partes.slice(1).join('');
+      }
+      this.value = v;
+    });
+  });
+</script>
 {% endblock %}

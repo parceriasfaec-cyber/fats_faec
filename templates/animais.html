@@ -23,6 +23,7 @@
       <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
     </form>
     <a href="{{ url_for('index') }}" class="btn btn-ghost">👥 Produtores</a>
+    <a href="{{ url_for('novo_animal') }}" class="btn btn-primary">➕ Novo Animal</a>
   </div>
 
   {% if animais %}
@@ -69,7 +70,7 @@
           {% endif %}
         </td>
         <td class="actions">
-          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('fotos_animal', aid=a['id']) }}">📷 Fotos</a>
+          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('fotos_animal', aid=a['id']) }}">✏️ Editar</a>
         </td>
       </tr>
       {% endfor %}

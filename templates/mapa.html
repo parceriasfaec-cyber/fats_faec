@@ -29,6 +29,10 @@
       <option value="">Todos os municípios</option>
     </select>
   </div>
+  <div>
+    <label style="display:block; visibility:hidden;">.</label>
+    <button id="btn-nova-etapa" type="button" class="btn btn-secondary btn-sm" title="Faz as propriedades do filtro acima voltarem a aparecer verdes (não visitadas)">🔄 Iniciar nova etapa</button>
+  </div>
   <div style="min-width:260px;">
     <label for="filtro-produtor">Ir direto para um Produtor</label>
     <select id="filtro-produtor">
@@ -42,10 +46,33 @@
       <option value="fortaleza">Sair de Fortaleza</option>
     </select>
   </div>
+  <div style="min-width:220px;">
+    <label for="filtro-destino-tipo">Ponto final</label>
+    <select id="filtro-destino-tipo">
+      <option value="nenhum">Nenhum (rota aberta)</option>
+      <option value="produtor">Escolher um produtor da lista</option>
+      <option value="mapa">Marcar no mapa (clique no local)</option>
+    </select>
+  </div>
+  <div id="destino-produtor-wrap" style="min-width:220px; display:none;">
+    <label for="filtro-destino-produtor">Produtor de destino</label>
+    <select id="filtro-destino-produtor">
+      <option value="">Selecione um produtor...</option>
+    </select>
+  </div>
+  <div style="display:flex; align-items:center; gap:6px; padding-bottom:10px;">
+    <input type="checkbox" id="filtro-ocultar-visitados" checked style="width:auto; margin:0;">
+    <label for="filtro-ocultar-visitados" style="margin:0; white-space:nowrap;">Ocultar já visitadas da rota</label>
+  </div>
   <div style="display:flex; gap:8px;">
     <button id="btn-criar-rota" class="btn btn-primary" type="button">🚚 Criar rota de entrega</button>
     <button id="btn-limpar-rota" class="btn btn-secondary" type="button" style="display:none;">Limpar rota</button>
   </div>
+</div>
+
+<div id="destino-mapa-aviso" class="card" style="display:none; background:#fff4e5;">
+  📍 Clique em qualquer ponto do mapa para marcar o destino final da rota.
+  <button id="btn-cancelar-destino-mapa" class="btn btn-secondary" type="button" style="margin-left:12px;">Cancelar</button>
 </div>
 
 <div id="rota-status" style="display:none;" class="card">
@@ -83,6 +110,7 @@
   const totalGeral = {{ total }};
   const noMapaGeral = {{ qtd_no_mapa }};
   const semCoordGeral = {{ sem_coordenadas }};
+  const tiposVisita = {{ tipos_visita_json | safe }};
 
   // Contorno aproximado do estado do Ceara (sudoeste, nordeste)
   const CEARA_BOUNDS = L.latLngBounds([-7.9, -41.4], [-2.7, -37.0]);
@@ -108,18 +136,146 @@
     iconAnchor: [8, 16],
   });
 
+  // Propriedades ja visitadas ganham um pino cinza, pra ficar facil ver
+  // no mapa quem ja foi atendido sem precisar abrir a ficha de cada um.
+  const iconeVisitado = L.divIcon({
+    className: '',
+    html: '<div style="background:#9a9a9a;width:16px;height:16px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>',
+    iconSize: [16, 16],
+    iconAnchor: [8, 16],
+  });
+
   // Mapa auxiliar: id do produtor -> { marcador, ponto }
   const marcadoresPorId = new Map();
 
-  pontos.forEach(function (p) {
-    const marcador = L.marker([p.lat, p.lon], { icon: iconeVerde }).addTo(mapa);
-    marcador.bindPopup(
+  // Mini-formulario de "marcar como visitado" que entra no popup de
+  // qualquer marcador de produtor (tanto no pino normal quanto numa
+  // parada numerada de uma rota ja calculada).
+  function construirWidgetVisitaRapida(p) {
+    const opcoesMotivo = tiposVisita.map(function (t) {
+      return '<option value="' + t.replace(/"/g, '&quot;') + '">' + t + '</option>';
+    }).join('');
+
+    return (
+      '<div style="margin-top:8px; padding-top:8px; border-top:1px solid #eee;">' +
+      '<select id="motivo-rapido-' + p.id + '" style="width:100%; font-size:0.82em; margin-bottom:6px; padding:2px;">' +
+      opcoesMotivo +
+      '</select>' +
+      '<button type="button" onclick="registrarVisitaRapida(' + p.id + ')" ' +
+      'style="width:100%; background:#2f5233; color:#fff; border:none; border-radius:4px; padding:6px; font-size:0.82em; cursor:pointer;">' +
+      '✔ Marcar como visitado (hoje)</button>' +
+      '<div id="msg-visita-' + p.id + '" style="font-size:0.78em; color:var(--cinza); margin-top:4px;"></div>' +
+      '</div>'
+    );
+  }
+
+  // Monta o HTML do popup de um produtor, incluindo o mini-formulario de
+  // "marcar como visitado" direto no mapa (sem precisar abrir outra tela).
+  function construirPopupProdutor(p) {
+    return (
+      '<div style="min-width:190px;">' +
       '<strong style="font-family:\'Fraunces\',serif;">' + p.nome_produtor + '</strong><br>' +
       p.nome_propriedade + '<br>' +
       p.municipio + '<br>' +
       '<span style="color:#777;font-size:0.85em;">Técnico: ' + p.tecnico_responsavel + '</span><br>' +
-      '<a href="/ficha/' + p.id + '" target="_blank" style="color:#a8571e;">Ver ficha completa</a>'
+      (p.visitado
+        ? '<span style="color:#9a9a9a;font-size:0.85em;">✔ Já visitado' +
+          (p.data_visita ? ' em ' + p.data_visita : '') +
+          (p.tipo_visita ? ' (' + p.tipo_visita + ')' : '') + '</span><br>' +
+          '<button type="button" onclick="iniciarNovaEtapaProdutor(' + p.id + ')" ' +
+          'style="background:none; border:none; color:#a8571e; font-size:0.78em; padding:0; margin-top:2px; cursor:pointer; text-decoration:underline;">' +
+          '🔄 Iniciar nova etapa (só este produtor)</button><br>'
+        : '') +
+      '<a href="/ficha/' + p.id + '" target="_blank" style="color:#a8571e;">Ver ficha completa</a>' +
+      construirWidgetVisitaRapida(p) +
+      '</div>'
     );
+  }
+
+  // Avanca a etapa de um unico produtor (ele volta a aparecer verde), sem
+  // afetar nenhum outro - pra quando so uma propriedade especifica esta
+  // pronta pra uma nova rodada, mesmo que o resto ainda nao esteja.
+  window.iniciarNovaEtapaProdutor = function (id) {
+    if (!confirm('Iniciar uma nova etapa só para este produtor? Ele volta a aparecer verde (não visitado). O histórico de visitas antigas dele continua salvo.')) {
+      return;
+    }
+    fetch('/produtor/' + id + '/nova_etapa', {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('Falha ao salvar');
+        return resp.json();
+      })
+      .then(function (dados) {
+        const info = marcadoresPorId.get(id);
+        if (info) {
+          info.ponto.visitado = false;
+          info.ponto.data_visita = '';
+          info.ponto.tipo_visita = '';
+          info.ponto.etapa_atual = dados.etapa_atual;
+          info.marcador.setIcon(iconeVerde);
+          info.marcador.setPopupContent(construirPopupProdutor(info.ponto));
+        }
+        popularDestinoProdutores(seletorMunicipio.value);
+      })
+      .catch(function () {
+        alert('Erro ao iniciar nova etapa. Tente novamente.');
+      });
+  };
+
+  // Registra, com um unico clique no popup do mapa, uma visita de hoje
+  // pra esse produtor - sem sair da tela do mapa. Usa a mesma rota que a
+  // tela de Visitas usa, so que via fetch (sem recarregar a pagina).
+  window.registrarVisitaRapida = function (id) {
+    const selectMotivo = document.getElementById('motivo-rapido-' + id);
+    const msg = document.getElementById('msg-visita-' + id);
+    const motivo = selectMotivo ? selectMotivo.value : '';
+    const hoje = new Date();
+    const dataBr = String(hoje.getDate()).padStart(2, '0') + '/' +
+      String(hoje.getMonth() + 1).padStart(2, '0') + '/' + hoje.getFullYear();
+
+    if (msg) msg.textContent = 'Salvando...';
+
+    const corpo = new URLSearchParams();
+    corpo.set('data_visita', dataBr);
+    corpo.set('tipo_visita', motivo);
+    corpo.set('observacoes', 'Registrado direto pelo mapa.');
+
+    fetch('/ficha/' + id + '/visita', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: corpo.toString(),
+    })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('Falha ao salvar');
+        return resp.json();
+      })
+      .then(function (dados) {
+        // Atualiza o ponto em memoria e o marcador no mapa, sem recarregar a pagina.
+        const info = marcadoresPorId.get(id);
+        if (info) {
+          info.ponto.visitado = true;
+          info.ponto.data_visita = dados.data_visita;
+          info.ponto.tipo_visita = dados.tipo_visita;
+          info.marcador.setIcon(iconeVisitado);
+          info.marcador.setPopupContent(construirPopupProdutor(info.ponto));
+        }
+        if (msg) msg.textContent = '✔ Visita registrada!';
+        // Mantem os combos de destino da rota atualizados com o novo status.
+        popularDestinoProdutores(seletorMunicipio.value);
+      })
+      .catch(function () {
+        if (msg) msg.textContent = 'Erro ao salvar. Tente novamente.';
+      });
+  };
+
+  pontos.forEach(function (p) {
+    const marcador = L.marker([p.lat, p.lon], { icon: p.visitado ? iconeVisitado : iconeVerde }).addTo(mapa);
+    marcador.bindPopup(construirPopupProdutor(p));
     marcadoresPorId.set(p.id, { marcador: marcador, ponto: p });
   });
 
@@ -156,6 +312,23 @@
       });
   }
   popularProdutores('');
+
+  // ---- Selecao do produtor de destino (ponto final da rota) ----
+  const seletorDestinoProdutor = document.getElementById('filtro-destino-produtor');
+
+  function popularDestinoProdutores(municipioSelecionado) {
+    seletorDestinoProdutor.innerHTML = '<option value="">Selecione um produtor...</option>';
+    pontos
+      .filter(function (p) { return !municipioSelecionado || p.municipio === municipioSelecionado; })
+      .sort(function (a, b) { return a.nome_produtor.localeCompare(b.nome_produtor); })
+      .forEach(function (p) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.nome_produtor + (p.visitado ? ' (já visitado)' : '');
+        seletorDestinoProdutor.appendChild(opt);
+      });
+  }
+  popularDestinoProdutores('');
 
   function atualizarMarcadoresVisiveis() {
     const municipioSelecionado = seletorMunicipio.value;
@@ -202,8 +375,38 @@
 
   seletorMunicipio.addEventListener('change', function () {
     popularProdutores(seletorMunicipio.value);
+    popularDestinoProdutores(seletorMunicipio.value);
     atualizarMarcadoresVisiveis();
     atualizarCartoes(seletorMunicipio.value);
+  });
+
+  // ---- Iniciar nova etapa (em lote, respeitando o filtro de municipio) ----
+  // Cada produtor guarda sua propria etapa - isso so avanca a etapa dos
+  // produtores do municipio filtrado (ou de todos, se nenhum filtro
+  // estiver selecionado), sem afetar quem esta em outro municipio/etapa.
+  const btnNovaEtapa = document.getElementById('btn-nova-etapa');
+  btnNovaEtapa.addEventListener('click', function () {
+    const municipioSelecionado = seletorMunicipio.value;
+    const alvo = municipioSelecionado ? ('em ' + municipioSelecionado) : 'em TODOS os municípios';
+    const confirmado = confirm(
+      'Iniciar uma nova etapa de visitas para os produtores ' + alvo + '? ' +
+      'Eles vão voltar a aparecer verdes (não visitados) no mapa. ' +
+      'O histórico de visitas antigas continua salvo.'
+    );
+    if (!confirmado) return;
+
+    const corpo = new URLSearchParams();
+    if (municipioSelecionado) corpo.set('municipio', municipioSelecionado);
+
+    fetch('{{ url_for("nova_etapa_lote") }}', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: corpo.toString(),
+    }).then(function () {
+      location.reload();
+    }).catch(function () {
+      alert('Erro ao iniciar nova etapa. Tente novamente.');
+    });
   });
 
   seletorProdutor.addEventListener('change', function () {
@@ -221,6 +424,11 @@
   const btnCriarRota = document.getElementById('btn-criar-rota');
   const btnLimparRota = document.getElementById('btn-limpar-rota');
   const seletorPartida = document.getElementById('filtro-partida');
+  const seletorDestinoTipo = document.getElementById('filtro-destino-tipo');
+  const destinoProdutorWrap = document.getElementById('destino-produtor-wrap');
+  const destinoMapaAviso = document.getElementById('destino-mapa-aviso');
+  const btnCancelarDestinoMapa = document.getElementById('btn-cancelar-destino-mapa');
+  const checkboxOcultarVisitados = document.getElementById('filtro-ocultar-visitados');
   const rotaStatus = document.getElementById('rota-status');
   const rotaStatusTexto = document.getElementById('rota-status-texto');
   const rotaPainel = document.getElementById('rota-painel');
@@ -231,10 +439,68 @@
   let linhaRota = null;
   let marcadoresNumerados = [];
   let marcadorPartida = null;
+  let marcadorDestino = null;
+  let destinoMapaSelecionado = null; // {lat, lon} quando o destino e marcado clicando no mapa
+  let aguardandoCliqueDestino = false;
 
   // Coordenadas aproximadas do centro de Fortaleza, usadas quando o
   // usuario escolhe "Sair de Fortaleza" como ponto de partida.
   const FORTALEZA_COORD = { lat: -3.71722, lon: -38.5433 };
+
+  // ---- Ponto final da rota: produtor da lista ou marcado no mapa ----
+  seletorDestinoTipo.addEventListener('change', function () {
+    const tipo = seletorDestinoTipo.value;
+    destinoProdutorWrap.style.display = tipo === 'produtor' ? 'block' : 'none';
+    if (tipo !== 'mapa') {
+      aguardandoCliqueDestino = false;
+      destinoMapaAviso.style.display = 'none';
+    }
+    if (tipo === 'mapa') {
+      aguardandoCliqueDestino = true;
+      destinoMapaAviso.style.display = 'block';
+    }
+    if (tipo !== 'mapa' && destinoMapaSelecionado && marcadorDestino) {
+      mapa.removeLayer(marcadorDestino);
+      marcadorDestino = null;
+      destinoMapaSelecionado = null;
+    }
+  });
+
+  btnCancelarDestinoMapa.addEventListener('click', function () {
+    aguardandoCliqueDestino = false;
+    destinoMapaAviso.style.display = 'none';
+    seletorDestinoTipo.value = 'nenhum';
+    if (marcadorDestino) { mapa.removeLayer(marcadorDestino); marcadorDestino = null; }
+    destinoMapaSelecionado = null;
+  });
+
+  mapa.on('click', function (e) {
+    if (!aguardandoCliqueDestino) return;
+    destinoMapaSelecionado = { lat: e.latlng.lat, lon: e.latlng.lng };
+    if (marcadorDestino) mapa.removeLayer(marcadorDestino);
+    marcadorDestino = L.marker([destinoMapaSelecionado.lat, destinoMapaSelecionado.lon], {
+      icon: iconeNumerado('🏁', '#a8571e'),
+    }).addTo(mapa).bindPopup('Destino final marcado').openPopup();
+    aguardandoCliqueDestino = false;
+    destinoMapaAviso.style.display = 'none';
+  });
+
+  // Devolve o destino escolhido (se houver) no formato { lat, lon, ehProdutor, produtor }
+  // ou null quando a rota deve ficar em aberto (sem ponto final definido).
+  function obterDestinoSelecionado() {
+    const tipo = seletorDestinoTipo.value;
+    if (tipo === 'produtor') {
+      const id = Number(seletorDestinoProdutor.value);
+      if (!id) return null;
+      const info = marcadoresPorId.get(id);
+      if (!info) return null;
+      return { lat: info.ponto.lat, lon: info.ponto.lon, ehProdutor: true, produtor: info.ponto };
+    }
+    if (tipo === 'mapa' && destinoMapaSelecionado) {
+      return { lat: destinoMapaSelecionado.lat, lon: destinoMapaSelecionado.lon, ehProdutor: false };
+    }
+    return null;
+  }
 
   // O botao de criar rota nao depende mais da selecao de um municipio:
   // sem municipio selecionado, a rota e calculada com todos os produtores
@@ -244,11 +510,14 @@
   }
   habilitarBotaoRota();
 
+  let marcadorChegada = null;
+
   function limparRota() {
     if (linhaRota) { mapa.removeLayer(linhaRota); linhaRota = null; }
     marcadoresNumerados.forEach(function (m) { mapa.removeLayer(m); });
     marcadoresNumerados = [];
     if (marcadorPartida) { mapa.removeLayer(marcadorPartida); marcadorPartida = null; }
+    if (marcadorChegada) { mapa.removeLayer(marcadorChegada); marcadorChegada = null; }
     rotaPainel.style.display = 'none';
     rotaStatus.style.display = 'none';
     btnLimparRota.style.display = 'none';
@@ -277,15 +546,20 @@
     return h + 'h' + (m ? ' ' + m + 'min' : '');
   }
 
-  async function calcularRota(pontosMunicipio, partida) {
-    // Monta a lista de coordenadas: ponto de partida (se houver) + paradas
+  async function calcularRota(pontosMunicipio, partida, destinoEscolhido) {
+    // Monta a lista de coordenadas: ponto de partida (se houver) + paradas + destino final (se houver)
     const coordenadas = [];
     if (partida) coordenadas.push([partida.lon, partida.lat]);
     pontosMunicipio.forEach(function (p) { coordenadas.push([p.lon, p.lat]); });
+    if (destinoEscolhido) coordenadas.push([destinoEscolhido.lon, destinoEscolhido.lat]);
 
     const coordsStr = coordenadas.map(function (c) { return c[0] + ',' + c[1]; }).join(';');
+    // "destination=last" trava o ultimo ponto enviado como o final obrigatorio
+    // da rota; sem ponto final escolhido, o OSRM e livre pra terminar onde for
+    // mais eficiente (destination=any, o padrao).
+    const destinoParam = destinoEscolhido ? '&destination=last' : '';
     const url = 'https://router.project-osrm.org/trip/v1/driving/' + coordsStr +
-      '?source=first&roundtrip=false&overview=full&geometries=geojson';
+      '?source=first&roundtrip=false&overview=full&geometries=geojson' + destinoParam;
 
     const resp = await fetch(url);
     if (!resp.ok) throw new Error('Falha ao consultar o serviço de rotas');
@@ -297,18 +571,42 @@
   btnCriarRota.addEventListener('click', function () {
     // Sem municipio selecionado, usa todos os produtores com coordenadas.
     const municipioSelecionado = seletorMunicipio.value;
-    const pontosAlvo = municipioSelecionado
+    let pontosBase = municipioSelecionado
       ? pontos.filter(function (p) { return p.municipio === municipioSelecionado; })
       : pontos;
-    if (pontosAlvo.length === 0) return;
+
+    // Por padrao, quem ja foi visitado sai da lista de paradas da rota.
+    if (checkboxOcultarVisitados.checked) {
+      pontosBase = pontosBase.filter(function (p) { return !p.visitado; });
+    }
+
+    const destinoEscolhido = obterDestinoSelecionado();
+    if (seletorDestinoTipo.value === 'mapa' && !destinoEscolhido) {
+      rotaStatus.style.display = 'block';
+      rotaStatusTexto.textContent = 'Clique no mapa para marcar o destino final antes de criar a rota.';
+      return;
+    }
+    if (seletorDestinoTipo.value === 'produtor' && !destinoEscolhido) {
+      rotaStatus.style.display = 'block';
+      rotaStatusTexto.textContent = 'Selecione um produtor de destino antes de criar a rota.';
+      return;
+    }
+
+    // O produtor escolhido como destino nao entra duas vezes na lista de paradas.
+    let pontosAlvo = pontosBase;
+    if (destinoEscolhido && destinoEscolhido.ehProdutor) {
+      pontosAlvo = pontosBase.filter(function (p) { return p.id !== destinoEscolhido.produtor.id; });
+    }
+
+    if (pontosAlvo.length === 0 && !destinoEscolhido) return;
 
     limparRota();
     rotaStatus.style.display = 'block';
 
     function prosseguir(partida) {
       rotaStatusTexto.textContent = 'Calculando a melhor rota de entrega...';
-      calcularRota(pontosAlvo, partida)
-        .then(function (dados) { montarRotaNoMapa(dados, pontosAlvo, partida); })
+      calcularRota(pontosAlvo, partida, destinoEscolhido)
+        .then(function (dados) { montarRotaNoMapa(dados, pontosAlvo, partida, destinoEscolhido); })
         .catch(function (erro) {
           rotaStatusTexto.textContent = 'Erro: ' + erro.message + '. Tente novamente.';
         });
@@ -336,18 +634,27 @@
     }
   });
 
-  function montarRotaNoMapa(dados, pontosMunicipio, partida) {
+  function montarRotaNoMapa(dados, pontosMunicipio, partida, destinoEscolhido) {
     rotaStatus.style.display = 'none';
     btnLimparRota.style.display = 'inline-block';
+
+    // Se o destino foi marcado clicando no mapa, remove o pino de "previa"
+    // pra dar lugar ao marcador numerado final, sem duplicar o pino no local.
+    if (destinoEscolhido && !destinoEscolhido.ehProdutor && marcadorDestino) {
+      mapa.removeLayer(marcadorDestino);
+      marcadorDestino = null;
+    }
 
     // "waypoints" traz a ordem otimizada (waypoint_index) para cada coordenada enviada
     const waypoints = dados.waypoints;
     const trip = dados.trips[0];
 
-    // Remonta a lista de pontos na mesma ordem em que foram enviados (partida + pontosMunicipio)
+    // Remonta a lista de pontos na mesma ordem em que foram enviados
+    // (partida + pontosMunicipio + destino escolhido)
     const listaEnviada = [];
     if (partida) listaEnviada.push({ tipo: 'partida', dado: partida });
     pontosMunicipio.forEach(function (p) { listaEnviada.push({ tipo: 'produtor', dado: p }); });
+    if (destinoEscolhido) listaEnviada.push({ tipo: 'destino', dado: destinoEscolhido });
 
     // Ordena pelos indices otimizados devolvidos pelo OSRM
     const ordenados = listaEnviada
@@ -374,6 +681,36 @@
           icon: iconeNumerado('🏁', '#2f5233'),
         }).addTo(mapa).bindPopup('Ponto de partida (sua localização)');
         boundsPontos.push([entrada.item.dado.lat, entrada.item.dado.lon]);
+      } else if (entrada.item.tipo === 'destino') {
+        const d = entrada.item.dado;
+        const perna = legs[indice - 1];
+        const distanciaTrecho = perna ? perna.distance : null;
+        const duracaoTrecho = perna ? perna.duration : null;
+        if (distanciaTrecho !== null) distanciaAcumulada += distanciaTrecho;
+
+        const nomeDestino = d.ehProdutor
+          ? d.produtor.nome_produtor + ' — ' + d.produtor.nome_propriedade
+          : 'Destino marcado no mapa';
+        marcadorChegada = L.marker([d.lat, d.lon], { icon: iconeNumerado('🏁', '#a8571e') })
+          .addTo(mapa)
+          .bindPopup('<strong>Destino final: ' + nomeDestino + '</strong>' +
+            (distanciaTrecho !== null
+              ? '<br><span style="color:#777;font-size:0.85em;">' + formatarDistancia(distanciaTrecho) +
+                ' desde a parada anterior · ' + formatarDuracao(duracaoTrecho) + '</span>'
+              : '') +
+            (d.ehProdutor
+              ? '<br><a href="/ficha/' + d.produtor.id + '" target="_blank" style="color:#a8571e;">Ver ficha completa</a>'
+              : ''));
+        boundsPontos.push([d.lat, d.lon]);
+
+        const liDestino = document.createElement('li');
+        liDestino.innerHTML = '<strong>🏁 ' + nomeDestino + '</strong>' +
+          (distanciaTrecho !== null
+            ? '<br><span style="color:#a8571e; font-size:0.82em;">' +
+              formatarDistancia(distanciaTrecho) + ' · ' + formatarDuracao(duracaoTrecho) +
+              ' desde a parada anterior · acumulado: ' + formatarDistancia(distanciaAcumulada) + '</span>'
+            : '');
+        rotaLista.appendChild(liDestino);
       } else {
         const p = entrada.item.dado;
         const perna = legs[indice - 1]; // trecho que chega até esta parada
@@ -389,7 +726,8 @@
               ? '<span style="color:#777;font-size:0.85em;">' + formatarDistancia(distanciaTrecho) +
                 ' desde a parada anterior · ' + formatarDuracao(duracaoTrecho) + '</span><br>'
               : '') +
-            '<a href="/ficha/' + p.id + '" target="_blank" style="color:#a8571e;">Ver ficha completa</a>');
+            '<a href="/ficha/' + p.id + '" target="_blank" style="color:#a8571e;">Ver ficha completa</a>' +
+            construirWidgetVisitaRapida(p));
         marcadoresNumerados.push(m);
         boundsPontos.push([p.lat, p.lon]);
 
@@ -409,24 +747,28 @@
 
     mapa.fitBounds(L.latLngBounds(boundsPontos).pad(0.2), { maxZoom: 13 });
 
-    rotaResumo.textContent = numeroParada - 1 + ' parada(s) · ' +
+    rotaResumo.textContent = (numeroParada - 1) + ' parada(s)' + (destinoEscolhido ? ' + destino final' : '') + ' · ' +
       formatarDistancia(trip.distance) + ' · aproximadamente ' + formatarDuracao(trip.duration);
     rotaPainel.style.display = 'block';
 
     // Monta o link para abrir a mesma ordem de paradas no Google Maps (navegação real)
-    const pontosOrdenadosProdutores = ordenados
-      .filter(function (e) { return e.item.tipo === 'produtor'; })
-      .map(function (e) { return e.item.dado; });
+    const paradasOrdenadas = ordenados
+      .filter(function (e) { return e.item.tipo === 'produtor' || e.item.tipo === 'destino'; })
+      .map(function (e) {
+        return e.item.tipo === 'destino'
+          ? { lat: e.item.dado.lat, lon: e.item.dado.lon }
+          : { lat: e.item.dado.lat, lon: e.item.dado.lon };
+      });
 
     let googleUrl = 'https://www.google.com/maps/dir/?api=1';
     if (partida) {
       googleUrl += '&origin=' + partida.lat + ',' + partida.lon;
     } else {
-      googleUrl += '&origin=' + pontosOrdenadosProdutores[0].lat + ',' + pontosOrdenadosProdutores[0].lon;
+      googleUrl += '&origin=' + paradasOrdenadas[0].lat + ',' + paradasOrdenadas[0].lon;
     }
-    const paradasParaLink = partida ? pontosOrdenadosProdutores : pontosOrdenadosProdutores.slice(1);
-    const destino = pontosOrdenadosProdutores[pontosOrdenadosProdutores.length - 1];
-    googleUrl += '&destination=' + destino.lat + ',' + destino.lon;
+    const paradasParaLink = partida ? paradasOrdenadas : paradasOrdenadas.slice(1);
+    const destinoFinal = paradasOrdenadas[paradasOrdenadas.length - 1];
+    googleUrl += '&destination=' + destinoFinal.lat + ',' + destinoFinal.lon;
     const intermediarias = paradasParaLink.slice(0, -1);
     if (intermediarias.length) {
       googleUrl += '&waypoints=' + intermediarias.map(function (p) { return p.lat + ',' + p.lon; }).join('|');

@@ -20,7 +20,7 @@ from openpyxl.utils import get_column_letter
 from database import get_connection, init_db, _base_dir
 from pdf_generator import generate_pdf
 from supabase_storage import enviar_bytes, excluir_arquivo, BUCKET_ANIMAIS
-from campos import FIELDS, FIELD_LABELS, MUNICIPIOS_CEARA
+from campos import FIELDS, FIELD_LABELS, MUNICIPIOS_CEARA, TIPOS_VISITA
 from fila_offline import (
     adicionar_na_fila, listar_pendentes, contar_pendentes, remover_da_fila,
     FILA_FOTOS_DIR,
@@ -213,12 +213,30 @@ def _parse_coordenada(valor: str):
         return None
 
 
+def _ultimas_visitas_da_etapa(conn):
+    """Devolve {produtor_id: linha da ultima visita} considerando so a
+    visita mais recente de cada produtor QUE AINDA VALE pra etapa atual
+    dele (cada produtor guarda a sua propria etapa_atual)."""
+    rows = conn.execute(
+        "SELECT DISTINCT ON (v.produtor_id) v.produtor_id, v.data_visita, v.tipo_visita "
+        "FROM visitas v "
+        "JOIN produtores p ON p.id = v.produtor_id AND v.etapa = p.etapa_atual "
+        "ORDER BY v.produtor_id, v.criado_em DESC, v.id DESC"
+    ).fetchall()
+    return {r["produtor_id"]: r for r in rows}
+
+
 @app.route("/mapa")
 def mapa():
     conn = get_connection()
     rows = conn.execute(
         "SELECT * FROM produtores ORDER BY nome_produtor"
     ).fetchall()
+    # Uma consulta soh, trazendo a visita mais recente de cada produtor que
+    # ainda "vale" pra etapa atual DELE (cada produtor tem a sua propria
+    # etapa_atual - times/tecnicos diferentes avancam em ritmos diferentes,
+    # entao isso nao e um numero unico pro sistema inteiro).
+    ultimas_visitas = _ultimas_visitas_da_etapa(conn)
     conn.close()
 
     pontos = []
@@ -240,6 +258,7 @@ def mapa():
             stats["sem_coordenadas"] += 1
             continue
         stats["no_mapa"] += 1
+        ultima_visita = ultimas_visitas.get(produtor["id"])
         pontos.append({
             "id": produtor["id"],
             "nome_produtor": produtor.get("nome_produtor") or "-",
@@ -248,6 +267,14 @@ def mapa():
             "tecnico_responsavel": produtor.get("tecnico_responsavel") or "-",
             "lat": lat,
             "lon": lon,
+            "etapa_atual": produtor.get("etapa_atual") or 1,
+            # "visitado" agora e derivado do historico de visitas: basta ter
+            # uma visita registrada NA ETAPA ATUAL DESTE produtor pra contar
+            # como ja visitado (visitas de etapas anteriores dele nao
+            # contam mais depois que ele avanca de etapa).
+            "visitado": ultima_visita is not None,
+            "data_visita": (ultima_visita["data_visita"] if ultima_visita else "") or "",
+            "tipo_visita": (ultima_visita["tipo_visita"] if ultima_visita else "") or "",
         })
 
     return render_template(
@@ -258,7 +285,162 @@ def mapa():
         qtd_no_mapa=len(pontos),
         sem_coordenadas=sem_coordenadas,
         municipio_stats_json=json.dumps(municipio_stats, ensure_ascii=False),
+        tipos_visita_json=json.dumps(TIPOS_VISITA, ensure_ascii=False),
     )
+
+
+@app.route("/visitas")
+def painel_visitas():
+    """Visao geral, em forma de lista/tabela, de quem ja foi visitado na
+    etapa atual (de cada um) e quem ainda falta - um jeito mais pratico de
+    acompanhar isso do que ficar clicando pino por pino no mapa."""
+    municipio_filtro = request.args.get("municipio", "").strip()
+    status_filtro = request.args.get("status", "").strip()  # "", "visitado", "pendente"
+
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM produtores ORDER BY nome_produtor"
+    ).fetchall()
+    ultimas_visitas = _ultimas_visitas_da_etapa(conn)
+    conn.close()
+
+    municipios = sorted(set((r.get("municipio") or "-") for r in rows))
+
+    produtores = []
+    total_visitados = 0
+    for row in rows:
+        produtor = dict(row)
+        municipio = produtor.get("municipio") or "-"
+        if municipio_filtro and municipio != municipio_filtro:
+            continue
+
+        ultima_visita = ultimas_visitas.get(produtor["id"])
+        visitado = ultima_visita is not None
+        if visitado:
+            total_visitados += 1
+
+        if status_filtro == "visitado" and not visitado:
+            continue
+        if status_filtro == "pendente" and visitado:
+            continue
+
+        produtores.append({
+            "id": produtor["id"],
+            "nome_produtor": produtor.get("nome_produtor") or "-",
+            "nome_propriedade": produtor.get("nome_propriedade") or "-",
+            "municipio": municipio,
+            "tecnico_responsavel": produtor.get("tecnico_responsavel") or "-",
+            "etapa_atual": produtor.get("etapa_atual") or 1,
+            "visitado": visitado,
+            "data_visita": (ultima_visita["data_visita"] if ultima_visita else "") or "",
+            "tipo_visita": (ultima_visita["tipo_visita"] if ultima_visita else "") or "",
+        })
+
+    return render_template(
+        "painel_visitas.html",
+        produtores=produtores,
+        municipios=municipios,
+        municipio_filtro=municipio_filtro,
+        status_filtro=status_filtro,
+        total_geral=len(rows),
+        total_visitados=total_visitados,
+    )
+
+
+@app.route("/produtor/<int:pid>/nova_etapa", methods=["POST"])
+def nova_etapa_produtor(pid):
+    """Avanca a etapa de visitas SO DESSE produtor: ele volta a aparecer
+    verde no mapa, sem mexer em nenhum outro (cada produtor tem seu
+    proprio ritmo). O historico de visitas antigas dele continua salvo,
+    so marcado com o numero da etapa anterior.
+
+    So faz efeito se o produtor JA TIVER uma visita registrada na etapa
+    atual dele - nao faz sentido "avancar de etapa" quem nunca foi
+    visitado, isso so criaria um produtor pendente numa etapa mais alta
+    sem nenhuma visita correspondente (o pino ficaria errado no mapa)."""
+    eh_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT etapa_atual FROM produtores WHERE id = ?", (pid,)
+    ).fetchone()
+    if row is None:
+        conn.close()
+        abort(404)
+
+    etapa_atual = row["etapa_atual"] or 1
+    ja_visitado = conn.execute(
+        "SELECT 1 FROM visitas WHERE produtor_id = ? AND etapa = ? LIMIT 1",
+        (pid, etapa_atual),
+    ).fetchone()
+
+    if not ja_visitado:
+        conn.close()
+        if eh_ajax:
+            return {"ok": False, "motivo": "ainda_nao_visitado"}, 409
+        flash("Esse produtor ainda não foi visitado nesta etapa.", "error")
+        return redirect(url_for("mapa"))
+
+    nova = etapa_atual + 1
+    conn.execute(
+        "UPDATE produtores SET etapa_atual = ?, atualizado_em = now() WHERE id = ?",
+        (nova, pid),
+    )
+    conn.commit()
+    conn.close()
+
+    if eh_ajax:
+        return {"ok": True, "produtor_id": pid, "etapa_atual": nova}
+
+    flash("Nova etapa iniciada para este produtor.", "success")
+    return redirect(url_for("mapa"))
+
+
+@app.route("/etapas/nova", methods=["POST"])
+def nova_etapa_lote():
+    """Avanca a etapa de visitas dos produtores JA VISITADOS na etapa
+    atual (opcionalmente filtrando por municipio, o mesmo filtro ja usado
+    no mapa/painel) - pra um tecnico poder "zerar" so a area dele sem
+    afetar quem ainda esta no meio de outra etapa em outro municipio.
+
+    Quem ainda esta pendente (sem visita registrada na etapa atual) NAO
+    avanca - continua na mesma etapa, aguardando ser visitado. Do
+    contrario, um produtor nunca visitado poderia "pular" de etapa sem
+    nenhuma visita correspondente, o que nao faz sentido nenhum."""
+    municipio = (request.form.get("municipio") or "").strip()
+
+    condicao_visitado = (
+        "EXISTS (SELECT 1 FROM visitas v WHERE v.produtor_id = produtores.id "
+        "AND v.etapa = produtores.etapa_atual)"
+    )
+
+    conn = get_connection()
+    if municipio:
+        conn.execute(
+            "UPDATE produtores SET etapa_atual = etapa_atual + 1, "
+            f"atualizado_em = now() WHERE municipio = ? AND {condicao_visitado}",
+            (municipio,),
+        )
+        mensagem = (
+            f"Nova etapa iniciada para os produtores já visitados em {municipio}. "
+            f"Quem ainda está pendente continua na mesma etapa."
+        )
+    else:
+        conn.execute(
+            "UPDATE produtores SET etapa_atual = etapa_atual + 1, atualizado_em = now() "
+            f"WHERE {condicao_visitado}"
+        )
+        mensagem = (
+            "Nova etapa iniciada para todos os produtores já visitados. "
+            "Quem ainda está pendente continua na mesma etapa."
+        )
+    conn.commit()
+    conn.close()
+
+    flash(mensagem, "success")
+    return redirect(url_for("mapa"))
+
+
 
 
 @app.route("/dashboard")
@@ -391,6 +573,83 @@ def ficha(pid):
     produtor["cpf"] = _formatar_cpf(produtor.get("cpf"))
     produtor["telefone"] = _formatar_telefone(produtor.get("telefone"))
     return render_template("ficha.html", produtor=produtor)
+
+
+@app.route("/produtor/<int:pid>/visitas")
+def visitas_produtor(pid):
+    """Pagina dedicada ao historico de visitas do produtor: registrar uma
+    visita nova (cadastro, entrega de material, acompanhamento etc) e ver
+    as que ja foram feitas, sem misturar com a ficha tecnica completa."""
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM produtores WHERE id = ?", (pid,)).fetchone()
+    if row is None:
+        conn.close()
+        abort(404)
+    visitas = conn.execute(
+        "SELECT * FROM visitas WHERE produtor_id = ? ORDER BY criado_em DESC, id DESC",
+        (pid,),
+    ).fetchall()
+    conn.close()
+    produtor = dict(row)
+    return render_template(
+        "visitas.html", produtor=produtor, visitas=visitas, tipos_visita=TIPOS_VISITA
+    )
+
+
+@app.route("/ficha/<int:pid>/visita", methods=["POST"])
+def nova_visita(pid):
+    """Registra uma nova visita para o produtor (cadastro, entrega de
+    material, acompanhamento etc). Um mesmo produtor pode ter varias.
+
+    Usada tanto pelo formulario normal da tela de Visitas (recarrega a
+    pagina) quanto pelo botao rapido do mapa, que chama essa mesma rota
+    via fetch() e so espera um JSON de volta (sem redirecionar)."""
+    eh_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+    conn = get_connection()
+    row = conn.execute("SELECT id, etapa_atual FROM produtores WHERE id = ?", (pid,)).fetchone()
+    if row is None:
+        conn.close()
+        abort(404)
+
+    data_visita = (request.form.get("data_visita") or "").strip()
+    tipo_visita = (request.form.get("tipo_visita") or "").strip()
+    observacoes = (request.form.get("observacoes") or "").strip()
+    etapa_do_produtor = row["etapa_atual"] or 1
+
+    conn.execute(
+        "INSERT INTO visitas (produtor_id, data_visita, tipo_visita, observacoes, etapa) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (pid, data_visita, tipo_visita, observacoes, etapa_do_produtor),
+    )
+    conn.commit()
+    conn.close()
+
+    if eh_ajax:
+        return {
+            "ok": True,
+            "produtor_id": pid,
+            "data_visita": data_visita,
+            "tipo_visita": tipo_visita,
+        }
+
+    flash("Visita registrada com sucesso.")
+    return redirect(url_for("visitas_produtor", pid=pid))
+
+
+@app.route("/visita/<int:vid>/excluir", methods=["POST"])
+def excluir_visita(vid):
+    conn = get_connection()
+    row = conn.execute("SELECT produtor_id FROM visitas WHERE id = ?", (vid,)).fetchone()
+    if row is None:
+        conn.close()
+        abort(404)
+    pid = row["produtor_id"]
+    conn.execute("DELETE FROM visitas WHERE id = ?", (vid,))
+    conn.commit()
+    conn.close()
+    flash("Visita excluída.")
+    return redirect(url_for("visitas_produtor", pid=pid))
 
 
 @app.route("/novo", methods=["GET", "POST"])
@@ -721,6 +980,37 @@ def desvincular_animal(aid):
     return redirect(url_for("index"))
 
 
+@app.route("/animais/novo", methods=["GET", "POST"])
+def novo_animal():
+    """Cadastra um animal novo (antes disso, so era possivel cadastrar
+    animais em massa pelo script de importacao)."""
+    if request.method == "POST":
+        brinco_faec = (request.form.get("brinco_faec") or "").strip()
+        brinco_fazenda = (request.form.get("brinco_fazenda") or "").strip()
+        peso = (request.form.get("peso") or "").strip()
+
+        if not brinco_faec:
+            flash("Informe o Brinco FAEC do animal.", "error")
+            return render_template("novo_animal.html", animal={
+                "brinco_faec": brinco_faec,
+                "brinco_fazenda": brinco_fazenda,
+                "peso": peso,
+            })
+
+        conn = get_connection()
+        novo = conn.execute(
+            "INSERT INTO animais (brinco_faec, brinco_fazenda, peso, status) "
+            "VALUES (?, ?, ?, 'disponivel') RETURNING id",
+            (brinco_faec, brinco_fazenda or None, peso or None),
+        ).fetchone()
+        conn.commit()
+        conn.close()
+        flash("Animal cadastrado com sucesso.", "success")
+        return redirect(url_for("fotos_animal", aid=novo["id"]))
+
+    return render_template("novo_animal.html", animal=None)
+
+
 @app.route("/animais/<int:aid>/fotos", methods=["GET", "POST"])
 def fotos_animal(aid):
     conn = get_connection()
@@ -754,6 +1044,12 @@ def fotos_animal(aid):
         peso = request.form.get("peso", "").strip()
         if peso != (animal["peso"] or ""):
             campos_para_salvar["peso"] = peso or None
+        brinco_faec = request.form.get("brinco_faec", "").strip()
+        if brinco_faec and brinco_faec != (animal["brinco_faec"] or ""):
+            campos_para_salvar["brinco_faec"] = brinco_faec
+        brinco_fazenda = request.form.get("brinco_fazenda", "").strip()
+        if brinco_fazenda != (animal["brinco_fazenda"] or ""):
+            campos_para_salvar["brinco_fazenda"] = brinco_fazenda or None
 
         if campos_para_salvar:
             set_clause = ", ".join(f"{c} = ?" for c in campos_para_salvar)

@@ -120,6 +120,13 @@ CREATE TABLE IF NOT EXISTS "FIV".produtores (
     nome_tecnico TEXT,
     cpf_tecnico TEXT,
 
+    -- Numero da "etapa"/rodada de visitas ATUAL desse produtor especifico.
+    -- Cada produtor tem a sua propria contagem, porque nem todo mundo
+    -- avanca de etapa ao mesmo tempo (tecnicos diferentes, ritmos
+    -- diferentes). So conta como "ja visitado" no mapa quem tiver uma
+    -- visita registrada com esse mesmo numero de etapa.
+    etapa_atual INTEGER NOT NULL DEFAULT 1,
+
     criado_em TIMESTAMP WITH TIME ZONE DEFAULT now(),
     atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
@@ -152,10 +159,47 @@ CREATE TABLE IF NOT EXISTS "FIV".animais (
 CREATE INDEX IF NOT EXISTS idx_animais_produtor ON "FIV".animais(produtor_id);
 CREATE INDEX IF NOT EXISTS idx_animais_status ON "FIV".animais(status);
 
+-- Historico de visitas de cada produtor. Um mesmo produtor pode ter varias
+-- visitas ao longo do tempo, cada uma com um motivo diferente (cadastro,
+-- entrega de material, acompanhamento dos animais, etc).
+CREATE TABLE IF NOT EXISTS "FIV".visitas (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    produtor_id BIGINT NOT NULL REFERENCES "FIV".produtores(id) ON DELETE CASCADE,
+
+    data_visita TEXT,    -- data da visita, no formato dd/mm/aaaa
+    tipo_visita TEXT,    -- motivo da visita (ver TIPOS_VISITA em campos.py)
+    observacoes TEXT,
+
+    -- Numero da etapa do PRODUTOR no momento em que essa visita foi
+    -- registrada (copiado de produtores.etapa_atual na hora do insert).
+    -- E assim que o mapa sabe se essa visita "ainda vale" pra marcar o
+    -- pino de cinza, ou se ja e de uma etapa anterior daquele produtor.
+    etapa INTEGER NOT NULL DEFAULT 1,
+
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_visitas_produtor ON "FIV".visitas(produtor_id);
+CREATE INDEX IF NOT EXISTS idx_visitas_etapa ON "FIV".visitas(etapa);
+
 -- Migracao: garante a coluna peso em bancos que ja tinham a tabela
 -- animais criada antes desta mudanca (CREATE TABLE IF NOT EXISTS acima
 -- nao adiciona coluna em tabela que ja existe).
 ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS peso TEXT;
+
+-- Migracao: garante a coluna etapa_atual em bancos que ja tinham a
+-- tabela produtores criada antes desta mudanca.
+ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS etapa_atual INTEGER NOT NULL DEFAULT 1;
+
+-- Migracao: garante a coluna etapa em bancos que ja tinham a tabela
+-- visitas criada antes desta mudanca.
+ALTER TABLE "FIV".visitas ADD COLUMN IF NOT EXISTS etapa INTEGER NOT NULL DEFAULT 1;
+
+-- Se voce ja tinha rodado a versao anterior desta migracao (que criava
+-- uma tabela "FIV".config com uma etapa global unica), ela nao e mais
+-- usada e pode ser apagada - mas deixar ela existindo tambem nao faz
+-- diferenca nenhuma, entao nao mexemos nela automaticamente aqui.
 """
 
 

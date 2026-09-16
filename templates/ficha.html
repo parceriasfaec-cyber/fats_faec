@@ -11,6 +11,7 @@
     <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">&larr; Voltar</a>
     <div style="display:flex; gap:8px;">
       <a href="{{ url_for('editar', pid=produtor['id']) }}" class="btn btn-secondary btn-sm">Editar</a>
+      <a href="{{ url_for('visitas_produtor', pid=produtor['id']) }}" class="btn btn-secondary btn-sm" title="Histórico de visitas">📋 Visitas</a>
       <a href="{{ url_for('pdf', pid=produtor['id']) }}" target="_blank" class="btn btn-primary btn-sm">Ver PDF</a>
     </div>
   </div>
@@ -41,7 +42,7 @@
     <div><label>Latitude</label><p>{{ v('latitude') }}</p></div>
     <div><label>Longitude</label><p>{{ v('longitude') }}</p></div>
     <div><label>Assistido ATeG?</label><p>{{ v('assistido_ateg') }}</p></div>
-    <div class="full"><label>Técnico Responsável / Sindicato</label><p>{{ (v('tecnico_responsavel'))|upper }}</p></div>
+    <div class="grid full"><label>Técnico Responsável / Sindicato</label><p>{{ (v('tecnico_responsavel'))|upper }}</p></div>
   </div>
 
   <div class="section-title">2. Perfil Socioeconômico Mínimo e Segurança Hídrica</div>

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Visitas - {{ produtor['nome_produtor'] or 'Produtor' }} - FATS{% endblock %}
+
+{% block content %}
+<style>
+  #painel-nova-visita summary { list-style: none; }
+  #painel-nova-visita summary::-webkit-details-marker { display: none; }
+  #painel-nova-visita summary::marker { content: ""; }
+</style>
+<div class="card">
+  <div class="toolbar">
+    <a href="{{ url_for('painel_visitas') }}" class="btn btn-secondary btn-sm">&larr; Voltar</a>
+    <div style="display:flex; gap:8px;">
+      <a href="{{ url_for('ficha', pid=produtor['id']) }}" class="btn btn-secondary btn-sm">Ver Ficha</a>
+      <a href="{{ url_for('editar', pid=produtor['id']) }}" class="btn btn-secondary btn-sm">Editar</a>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:16px; margin-top:10px;">
+    {% if produtor['foto_produtor'] %}
+    <img class="foto-ficha" src="{{ foto_url(produtor['foto_produtor']) }}" alt="Foto de {{ produtor['nome_produtor'] }}">
+    {% endif %}
+    <div>
+      <h2 style="margin:0; color:var(--verde);">📋 Visitas — {{ (produtor['nome_produtor'] or '-')|upper }}</h2>
+      <p style="margin:2px 0 0; color:var(--cinza); font-size:0.9rem;">{{ (produtor['nome_propriedade'] or '-')|upper }} — {{ (produtor['municipio'] or '-')|upper }}</p>
+    </div>
+  </div>
+
+  <div class="toolbar" style="margin-top:16px;">
+    <div class="section-title" style="margin:0;">Histórico</div>
+    <details id="painel-nova-visita" style="margin:0; position:relative;">
+      <summary class="btn btn-primary btn-sm" style="cursor:pointer; display:inline-flex; align-items:center;">➕ Registrar visita</summary>
+      <div class="card" style="background:#fafafa; margin-top:10px; position:absolute; right:20px; z-index:5; width:min(480px, 90vw);">
+        <form method="post" action="{{ url_for('nova_visita', pid=produtor['id']) }}">
+          <div class="ficha-grid">
+            <div>
+              <label>Data da Visita</label>
+              <input type="text" name="data_visita" class="date-br" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" pattern="\d{2}/\d{2}/\d{4}" required>
+            </div>
+            <div>
+              <label>Motivo da Visita</label>
+              <select name="tipo_visita" required>
+                <option value="">-- selecione --</option>
+                {% for tipo in tipos_visita %}
+                <option value="{{ tipo }}">{{ tipo }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="full">
+              <label>Observações (opcional)</label>
+              <textarea name="observacoes" rows="2"></textarea>
+            </div>
+          </div>
+          <div class="form-actions" style="margin-top:12px;">
+            <button type="submit" class="btn btn-primary">Salvar visita</button>
+          </div>
+        </form>
+      </div>
+    </details>
+  </div>
+
+  {% if visitas %}
+  <div class="tabela-scroll">
+  <table class="list">
+    <thead>
+      <tr>
+        <th class="nowrap">Data</th>
+        <th>Motivo</th>
+        <th>Observações</th>
+        <th class="nowrap">Etapa</th>
+        <th class="actions"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for visita in visitas %}
+      <tr>
+        <td class="nowrap">{{ visita['data_visita'] or '-' }}</td>
+        <td>{{ visita['tipo_visita'] or '-' }}</td>
+        <td>{{ visita['observacoes'] or '-' }}</td>
+        <td class="nowrap">{{ visita['etapa'] }}</td>
+        <td class="actions">
+          <form method="post" action="{{ url_for('excluir_visita', vid=visita['id']) }}" onsubmit="return confirm('Excluir esta visita?');">
+            <button type="submit" class="btn btn-danger-ghost btn-sm">🗑 Excluir</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <p class="empty">Nenhuma visita registrada ainda para este produtor.</p>
+  {% endif %}
+</div>
+
+<script>
+  // Data da Visita: aplica mascara dd/mm/aaaa automaticamente, igual ao
+  // resto do sistema (mesmo comportamento do campo de Data de Nascimento).
+  document.querySelectorAll('.date-br').forEach(function (el) {
+    el.addEventListener('input', function () {
+      var v = this.value.replace(/\D/g, '').slice(0, 8);
+      if (v.length >= 5) {
+        v = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
+      } else if (v.length >= 3) {
+        v = v.slice(0, 2) + '/' + v.slice(2);
+      }
+      this.value = v;
+    });
+  });
+</script>
+{% endblock %}

@@ -66,7 +66,6 @@
         <th class="col-principal nowrap">CPF</th>
         <th class="col-principal">Produtor / Propriedade</th>
         <th class="col-principal">Município</th>
-        <th>Responsável</th>
         <th class="nowrap">Animais</th>
         <th>ATEG</th>
         <th class="actions">Ações</th>
@@ -90,7 +89,6 @@
           <div style="font-size:0.78rem; color:var(--cinza); font-weight:400;">{{ (p['nome_propriedade'] or '-')|upper }}</div>
         </td>
         <td>{{ (p['municipio'] or '-')|upper }}</td>
-        <td>{{ (p['tecnico_responsavel'] or '-')|upper }}</td>
         <td class="nowrap">
           <div class="progresso-animais {{ 'parcial' if 0 < p['qtd_animais'] < limite_animais else '' }}">
             <span class="barra"><span style="width: {{ (p['qtd_animais'] / limite_animais * 100) if limite_animais else 0 }}%;"></span></span>
@@ -108,6 +106,7 @@
         </td>
         <td class="actions">
           <a class="btn btn-secondary btn-sm" href="{{ url_for('editar', pid=p['id']) }}">✏️ Editar</a>
+          <a class="btn btn-outline-terra btn-sm" title="Histórico de visitas" href="{{ url_for('visitas_produtor', pid=p['id']) }}">📋</a>
           <a class="btn btn-outline-terra btn-sm" href="{{ url_for('animais_produtor', pid=p['id']) }}">🐄 Animais</a>
           <a class="btn btn-outline-terra btn-sm" href="{{ url_for('pdf', pid=p['id']) }}" target="_blank">📄 PDF</a>
           <form method="post" action="{{ url_for('excluir', pid=p['id']) }}"
