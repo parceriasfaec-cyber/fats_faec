@@ -393,6 +393,7 @@ def relatorio():
     municipio_filtro = request.args.get("municipio", "").strip()
     status_filtro = request.args.get("status", "").strip()
     motivo_filtro = request.args.get("motivo", "").strip()
+    ordem_data = request.args.get("ordem_data", "").strip()
 
     conn = get_connection()
     rows = conn.execute(
@@ -450,6 +451,22 @@ def relatorio():
             "tipo_visita": motivo,
         })
 
+    if ordem_data in ("recente", "antiga"):
+        def data_visita_chave(produtor):
+            texto = produtor["data_visita"]
+            if not texto:
+                return datetime.min if ordem_data == "recente" else datetime.max
+            try:
+                data = datetime.strptime(texto, "%d/%m/%Y")
+            except ValueError:
+                return datetime.min if ordem_data == "recente" else datetime.max
+            return data
+
+        produtores.sort(
+            key=data_visita_chave,
+            reverse=ordem_data == "recente",
+        )
+
     return render_template(
         "relatorio.html",
         produtores=produtores,
@@ -457,6 +474,7 @@ def relatorio():
         municipio_filtro=municipio_filtro,
         status_filtro=status_filtro,
         motivo_filtro=motivo_filtro,
+        ordem_data=ordem_data,
         motivos_visita=sorted(set(TIPOS_VISITA + ["Cadastro / Ficha inicial"])),
         total_geral=len(rows),
         total_visitados=total_visitados,
@@ -1012,6 +1030,11 @@ def fila():
     )
 
 
+@app.route("/modo-offline")
+def modo_offline():
+    return render_template("offline.html")
+
+
 @app.route("/fila/visita/excluir/<int:id_local>", methods=["POST"])
 def excluir_visita_pendente_rota(id_local):
     excluir_visita_pendente(id_local)
@@ -1147,7 +1170,7 @@ def sincronizar():
     if not sucesso and not falha:
         if not visitas_sucesso and not visitas_falha and not animais_sucesso and not animais_falha:
             flash("Não há cadastros ou visitas pendentes para sincronizar.", "success")
-    return redirect(url_for("fila"))
+    return redirect(url_for("modo_offline"))
 
 
 @app.route("/fila/excluir/<int:id_local>", methods=["POST"])

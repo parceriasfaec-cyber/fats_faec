@@ -7,10 +7,12 @@
     Não foi possível acessar o banco online. Isso é esperado quando não há internet.
     Os registros feitos neste computador ficam guardados localmente até a conexão voltar.
   </p>
+  <h3 style="margin-top:24px; color:var(--verde-escuro);">O que deseja fazer?</h3>
   <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:24px;">
     <a href="{{ url_for('novo') }}" class="btn btn-primary">➕ Novo produtor</a>
     <a href="{{ url_for('novo_animal') }}" class="btn btn-primary">🐄 Novo animal</a>
     <a href="{{ url_for('mapa') }}" class="btn btn-primary">🗺️ Abrir mapa offline</a>
+    <a href="https://fats-faec.onrender.com/mapa" target="_blank" rel="noopener" class="btn btn-secondary">🌐 Abrir mapa online</a>
     <a href="{{ url_for('fila') }}" class="btn btn-secondary">⏳ Ver fila offline</a>
     <a href="{{ url_for('fila') }}" class="btn btn-secondary">🔄 Sincronizar</a>
   </div>

@@ -42,6 +42,14 @@
         {% endfor %}
       </select>
     </div>
+    <div style="min-width:220px;">
+      <label for="ordem-data">Ordenar por visita</label>
+      <select id="ordem-data" name="ordem_data">
+        <option value="" {% if not ordem_data %}selected{% endif %}>Nome do produtor</option>
+        <option value="recente" {% if ordem_data == 'recente' %}selected{% endif %}>Mais recentes</option>
+        <option value="antiga" {% if ordem_data == 'antiga' %}selected{% endif %}>Mais antigas</option>
+      </select>
+    </div>
     <button type="submit" class="btn btn-primary">Filtrar</button>
   </form>
 </div>
