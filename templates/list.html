@@ -53,7 +53,7 @@
     <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
 
     <span style="margin-left:auto; display:flex; gap:8px;">
-      <a href="{{ url_for('exportar_excel', q=busca) }}" class="btn btn-ghost">⬇ Exportar Excel</a>
+      <a href="{{ url_for('exportar_animais_alocados', q=busca, municipio=municipio_filtro, ateg=ateg_filtro) }}" class="btn btn-ghost">⬇ Exportar Excel (animais alocados)</a>
     </span>
   </form>
 
