@@ -16,10 +16,12 @@
 <div class="card">
   <h3 style="margin-top:0;">Como nomear os arquivos</h3>
   <ul style="line-height:1.7; color:var(--verde-escuro);">
-    <li>Renomeie cada foto com o <strong>Brinco FAEC</strong> do animal. Ex: o animal <code>0001</code> → arquivo <code>0001.jpg</code>.</li>
-    <li>Se o animal tiver mais de uma foto, acrescente <code>_1</code>, <code>_2</code> ou <code>_3</code> no final. Ex: <code>0001_1.jpg</code>, <code>0001_2.jpg</code>.</li>
+    <li>Renomeie cada foto com o <strong>Brinco da Fazenda</strong> do animal. Ex: o animal de brinco <code>V 0973 CW</code> → arquivo <code>V 0973 CW.jpg</code>.</li>
+    <li>Para indicar a posição da foto, acrescente <code>_1</code>, <code>_2</code> ou <code>_3</code> no final. Ex: <code>V 0973 CW_1.jpg</code> (Foto 1) e <code>V 0973 CW_2.jpg</code> (Foto 2).</li>
     <li>Sem esse sufixo, a foto entra na primeira posição vazia (Foto 1, depois 2, depois 3).</li>
-    <li>Maiúscula/minúscula, espaço, traço ou ponto no meio não atrapalham — <code>0001.jpg</code>, <code>0001 .JPG</code> e <code>0001-1.jpg</code> funcionam igual.</li>
+    <li>Maiúscula/minúscula, espaço, traço ou ponto no meio não atrapalham — <code>V 0973 CW_1.jpg</code>, <code>v0973cw_1.JPG</code> e <code>V-0973-CW-1.jpg</code> funcionam igual.</li>
+    <li>Se o nome do arquivo tiver partes a mais, tudo bem: o sistema casa quando o nome contém <strong>todas as partes</strong> do brinco cadastrado. Ex: <code>V 0973 CW_1.jpg</code> casa com o animal <code>0973 CW</code>, e <code>V 1891 CW_1.jpg</code> casa com <code>V 1891</code> (marcados com ※ no resultado, pra você conferir). O brinco cadastrado precisa ter número.</li>
+    <li>Arquivos nomeados com o Brinco FAEC (ex: <code>0001_1.jpg</code>) ainda funcionam, mas só quando nenhum animal tem aquele brinco de fazenda.</li>
   </ul>
   <p style="font-size:0.85rem; color:var(--cinza);">
     ⚠️ Se estiver usando o site publicado (Vercel), evite mandar centenas de fotos de uma vez —
@@ -71,10 +73,10 @@
     </summary>
     <div class="tabela-scroll" style="margin-top:10px;">
       <table class="list">
-        <thead><tr><th>Arquivo</th><th class="nowrap">Brinco FAEC</th><th class="nowrap">Posição</th></tr></thead>
+        <thead><tr><th>Arquivo</th><th class="nowrap">Brinco Fazenda</th><th class="nowrap">Brinco FAEC</th><th class="nowrap">Posição</th></tr></thead>
         <tbody>
           {% for item in resultado.importados %}
-          <tr><td>{{ item.arquivo }}</td><td class="nowrap">{{ item.brinco }}</td><td class="nowrap">{{ item.campo }}</td></tr>
+          <tr><td>{{ item.arquivo }}{% if item.via_prefixo %} <span title="Casamento aproximado: o nome do arquivo tem partes a mais que o brinco cadastrado" style="color:var(--terra);">※</span>{% endif %}</td><td class="nowrap">{{ item.brinco }}</td><td class="nowrap">{{ item.faec }}</td><td class="nowrap">{{ item.campo }}</td></tr>
           {% endfor %}
         </tbody>
       </table>

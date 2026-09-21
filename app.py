@@ -1413,13 +1413,51 @@ def _normalizar_brinco(valor: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", (valor or "").upper())
 
 
+def _partes_brinco(valor: str) -> frozenset:
+    """Quebra um brinco em partes (letras/números separados por espaço, traço,
+    ponto...), em maiúsculas. Ex: "V 0973 CW" -> {"V", "0973", "CW"}."""
+    return frozenset(re.findall(r"[A-Z0-9]+", (valor or "").upper()))
+
+
+def _buscar_por_partes(base: str, animais_fazenda: list):
+    """Casamento aproximado, usado só quando não achou brinco igual: o animal
+    casa se o nome do arquivo tiver TODAS as partes do brinco dele, mesmo que
+    o nome tenha partes a mais. Ex: arquivo "V 0973 CW" casa com o animal
+    "0973 CW"; arquivo "V 1891 CW" casa com o animal "V 1891".
+
+    Regras pra não errar de animal:
+      - o brinco cadastrado precisa ter ao menos um número (senão "CW 999"
+        casaria com um animal cujo brinco é só "CW");
+      - se mais de um animal casar, vale o que tem mais partes; se ainda
+        empatar, devolve todos (a rota marca como ambíguo).
+    """
+    partes_arquivo = _partes_brinco(base)
+    achados = []
+    for partes, animal in animais_fazenda:
+        if partes and partes <= partes_arquivo and any(
+            ch.isdigit() for parte in partes for ch in parte
+        ):
+            achados.append((len(partes), animal))
+    if not achados:
+        return []
+    maior = max(n for n, _ in achados)
+    return [a for n, a in achados if n == maior]
+
+
 @app.route("/animais/importar-fotos", methods=["GET", "POST"])
 def importar_fotos_lote():
     """
     Importação em lote de fotos de animais: o nome de cada arquivo enviado
-    deve trazer o Brinco FAEC do animal (ex: "0001.jpg" vira a foto do
-    animal de brinco 0001), com um sufixo opcional _1/_2/_3 pra escolher a
-    posição (Foto 1/2/3) - sem sufixo, cai na primeira posição vazia.
+    deve trazer o BRINCO DA FAZENDA do animal (ex: "V 0973 CW.jpg" vira a
+    foto do animal de brinco da fazenda "V 0973 CW"), com um sufixo opcional
+    _1/_2/_3 pra escolher a posição (Foto 1/2/3) - ex: "V 0973 CW_1.jpg" e
+    "V 0973 CW_2.jpg". Sem sufixo, cai na primeira posição vazia.
+
+    Se nenhum animal tiver exatamente aquele brinco de fazenda, tenta o
+    Brinco FAEC (ex: "0001.jpg") e por fim o casamento aproximado: o arquivo
+    casa com o animal se tiver todas as partes do brinco dele, ignorando
+    partes a mais (ex: "V 0973 CW_1" casa com "0973 CW"; "V 1891 CW_1" casa
+    com "V 1891").
 
     Feito pra importar de uma vez uma pasta cheia de fotos já renomeadas
     (ex: as ~200 fotos de uma visita a campo), em vez de subir animal por
@@ -1445,10 +1483,12 @@ def importar_fotos_lote():
     # pra marcar como ambiguo em vez de arriscar salvar no animal errado).
     por_faec = {}
     por_fazenda = {}
+    animais_fazenda = []  # [(partes do brinco, animal)] pro casamento aproximado
     for a in animais:
         por_faec.setdefault(_normalizar_brinco(a["brinco_faec"]), []).append(a)
         if a["brinco_fazenda"]:
             por_fazenda.setdefault(_normalizar_brinco(a["brinco_fazenda"]), []).append(a)
+            animais_fazenda.append((_partes_brinco(a["brinco_fazenda"]), a))
 
     importados = []       # [{"arquivo":..., "brinco":..., "campo": "foto_1"}]
     sem_correspondencia = []
@@ -1473,7 +1513,11 @@ def importar_fotos_lote():
             base, slot_forcado = m.group(1), int(m.group(2))
 
         chave = _normalizar_brinco(base)
-        candidatos = por_faec.get(chave) or por_fazenda.get(chave) or []
+        candidatos = por_fazenda.get(chave) or por_faec.get(chave) or []
+        via_prefixo = False
+        if not candidatos:
+            candidatos = _buscar_por_partes(base, animais_fazenda)
+            via_prefixo = bool(candidatos)
 
         if len(candidatos) == 0:
             sem_correspondencia.append(nome_arquivo)
@@ -1496,7 +1540,10 @@ def importar_fotos_lote():
             )
 
         if not campo or campo in ja_usados:
-            sem_vaga.append({"arquivo": nome_arquivo, "brinco": animal["brinco_faec"]})
+            sem_vaga.append({
+                "arquivo": nome_arquivo,
+                "brinco": animal["brinco_fazenda"] or animal["brinco_faec"],
+            })
             continue
 
         try:
@@ -1510,7 +1557,13 @@ def importar_fotos_lote():
 
         atualizacoes_por_animal.setdefault(animal["id"], {})[campo] = url
         ja_usados.add(campo)
-        importados.append({"arquivo": nome_arquivo, "brinco": animal["brinco_faec"], "campo": campo})
+        importados.append({
+            "via_prefixo": via_prefixo,
+            "arquivo": nome_arquivo,
+            "brinco": animal["brinco_fazenda"] or animal["brinco_faec"],
+            "faec": animal["brinco_faec"],
+            "campo": campo,
+        })
 
     for animal_id, campos in atualizacoes_por_animal.items():
         set_clause = ", ".join(f"{c} = ?" for c in campos)
