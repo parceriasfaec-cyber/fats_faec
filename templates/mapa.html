@@ -95,9 +95,21 @@
   </div>
 </div>
 
-<div class="card" style="padding:0; overflow:hidden;">
+<style>
+  /* Mapa grande por padrao; o botao ⛶ do mapa abre em tela cheia */
+  #mapa-ceara { width:100%; height:78vh; min-height:560px; }
+  #mapa-wrapper.mapa-tela-cheia {
+    position:fixed; inset:0; z-index:5000; margin:0; border-radius:0; border:none;
+  }
+  #mapa-wrapper.mapa-tela-cheia #mapa-ceara { height:100vh; }
+  .leaflet-control-tela-cheia a {
+    font-size:20px; line-height:30px; text-align:center; text-decoration:none;
+    color:#2f5233; cursor:pointer; font-weight:700;
+  }
+</style>
+<div id="mapa-wrapper" class="card" style="padding:0; overflow:hidden;">
   {% if pontos %}
-    <div id="mapa-ceara" style="width:100%; height:50vh; min-height:380px; max-height:520px;"></div>
+    <div id="mapa-ceara"></div>
   {% else %}
     <div class="empty" style="padding:60px 20px;">
       Nenhum produtor com Latitude/Longitude preenchidas ainda.<br>
@@ -130,6 +142,30 @@
 
   // Vista padrao: o estado do Ceara inteiro (nunca mostra o Nordeste todo)
   mapa.fitBounds(CEARA_BOUNDS);
+
+  // Botao de tela cheia (⛶). Esc tambem sai da tela cheia.
+  const mapaWrapper = document.getElementById('mapa-wrapper');
+  function alternarTelaCheia(ligar) {
+    const ativo = typeof ligar === 'boolean' ? ligar : !mapaWrapper.classList.contains('mapa-tela-cheia');
+    mapaWrapper.classList.toggle('mapa-tela-cheia', ativo);
+    document.body.style.overflow = ativo ? 'hidden' : '';
+    setTimeout(function () { mapa.invalidateSize(); }, 50);
+  }
+  const controleTelaCheia = L.control({ position: 'topleft' });
+  controleTelaCheia.onAdd = function () {
+    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-tela-cheia');
+    const a = L.DomUtil.create('a', '', div);
+    a.innerHTML = '⛶';
+    a.href = '#';
+    a.title = 'Tela cheia (Esc para sair)';
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.on(a, 'click', function (e) { L.DomEvent.preventDefault(e); alternarTelaCheia(); });
+    return div;
+  };
+  controleTelaCheia.addTo(mapa);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && mapaWrapper.classList.contains('mapa-tela-cheia')) alternarTelaCheia(false);
+  });
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
