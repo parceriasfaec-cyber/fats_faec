@@ -44,6 +44,13 @@
     <select id="filtro-partida">
       <option value="atual">Minha localização atual</option>
       <option value="fortaleza">Sair de Fortaleza</option>
+      <option value="produtor">Escolher um produtor da lista</option>
+    </select>
+  </div>
+  <div id="partida-produtor-wrap" style="min-width:220px; display:none;">
+    <label for="filtro-partida-produtor">Produtor de partida</label>
+    <select id="filtro-partida-produtor">
+      <option value="">Selecione um produtor...</option>
     </select>
   </div>
   <div style="min-width:220px;">
@@ -69,19 +76,6 @@
     <button id="btn-limpar-rota" class="btn btn-secondary" type="button" style="display:none;">Limpar rota</button>
   </div>
 </div>
-
-<details id="selecao-produtores-rota" class="card" style="display:none;">
-  <summary style="cursor:pointer; font-weight:600; color:var(--verde-escuro);">
-    Propriedades para visitar nesta rota
-    <span id="selecao-rota-contador" style="float:right; color:var(--cinza); font-size:0.85rem; font-weight:400;"></span>
-  </summary>
-  <div style="display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 8px; align-items:center;">
-    <input id="busca-selecao-rota" type="search" placeholder="Buscar produtor ou propriedade..." style="flex:1; min-width:240px;">
-    <button id="btn-selecionar-todos-rota" type="button" class="btn btn-secondary btn-sm">Selecionar todos</button>
-    <button id="btn-limpar-selecao-rota" type="button" class="btn btn-secondary btn-sm">Limpar seleção</button>
-  </div>
-  <div id="lista-selecao-rota" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:4px 16px; max-height:230px; overflow-y:auto; padding-right:8px;"></div>
-</details>
 
 <div id="destino-mapa-aviso" class="card" style="display:none; background:#fff4e5;">
   📍 Clique em qualquer ponto do mapa para marcar o destino final da rota.
@@ -360,6 +354,23 @@
   }
   popularDestinoProdutores('');
 
+  // ---- Selecao do produtor de partida (inicio da rota) ----
+  const seletorPartidaProdutor = document.getElementById('filtro-partida-produtor');
+
+  function popularPartidaProdutores(municipioSelecionado) {
+    seletorPartidaProdutor.innerHTML = '<option value="">Selecione um produtor...</option>';
+    pontos
+      .filter(function (p) { return !municipioSelecionado || p.municipio === municipioSelecionado; })
+      .sort(function (a, b) { return a.nome_produtor.localeCompare(b.nome_produtor); })
+      .forEach(function (p) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.nome_produtor + (p.visitado ? ' (já visitado)' : '');
+        seletorPartidaProdutor.appendChild(opt);
+      });
+  }
+  popularPartidaProdutores('');
+
   function atualizarMarcadoresVisiveis() {
     const municipioSelecionado = seletorMunicipio.value;
     const visiveis = [];
@@ -406,9 +417,9 @@
   seletorMunicipio.addEventListener('change', function () {
     popularProdutores(seletorMunicipio.value);
     popularDestinoProdutores(seletorMunicipio.value);
+    popularPartidaProdutores(seletorMunicipio.value);
     atualizarMarcadoresVisiveis();
     atualizarCartoes(seletorMunicipio.value);
-    renderizarSelecaoRota();
   });
 
   seletorProdutor.addEventListener('change', function () {
@@ -426,17 +437,12 @@
   const btnCriarRota = document.getElementById('btn-criar-rota');
   const btnLimparRota = document.getElementById('btn-limpar-rota');
   const seletorPartida = document.getElementById('filtro-partida');
+  const partidaProdutorWrap = document.getElementById('partida-produtor-wrap');
   const seletorDestinoTipo = document.getElementById('filtro-destino-tipo');
   const destinoProdutorWrap = document.getElementById('destino-produtor-wrap');
   const destinoMapaAviso = document.getElementById('destino-mapa-aviso');
   const btnCancelarDestinoMapa = document.getElementById('btn-cancelar-destino-mapa');
   const checkboxOcultarVisitados = document.getElementById('filtro-ocultar-visitados');
-  const selecaoRota = document.getElementById('selecao-produtores-rota');
-  const listaSelecaoRota = document.getElementById('lista-selecao-rota');
-  const contadorSelecaoRota = document.getElementById('selecao-rota-contador');
-  const buscaSelecaoRota = document.getElementById('busca-selecao-rota');
-  const btnSelecionarTodosRota = document.getElementById('btn-selecionar-todos-rota');
-  const btnLimparSelecaoRota = document.getElementById('btn-limpar-selecao-rota');
   const rotaStatus = document.getElementById('rota-status');
   const rotaStatusTexto = document.getElementById('rota-status-texto');
   const rotaPainel = document.getElementById('rota-painel');
@@ -451,64 +457,14 @@
   let destinoMapaSelecionado = null; // {lat, lon} quando o destino e marcado clicando no mapa
   let aguardandoCliqueDestino = false;
 
-  function pontosDisponiveisParaSelecao() {
-    const municipioSelecionado = seletorMunicipio.value;
-    return pontos
-      .filter(function (p) {
-        const mesmoMunicipio = !municipioSelecionado || p.municipio === municipioSelecionado;
-        const podeVisitar = !checkboxOcultarVisitados.checked || !p.visitado;
-        return mesmoMunicipio && podeVisitar;
-      })
-      .sort(function (a, b) { return a.nome_produtor.localeCompare(b.nome_produtor); });
-  }
-
-  function atualizarContadorSelecaoRota() {
-    const marcados = listaSelecaoRota.querySelectorAll('input[type="checkbox"]:checked').length;
-    const total = listaSelecaoRota.querySelectorAll('input[type="checkbox"]').length;
-    contadorSelecaoRota.textContent = marcados + ' de ' + total + ' selecionadas';
-  }
-
-  function filtrarSelecaoRota() {
-    const busca = buscaSelecaoRota.value.trim().toLocaleLowerCase();
-    listaSelecaoRota.querySelectorAll('label').forEach(function (label) {
-      label.style.display = !busca || label.dataset.busca.indexOf(busca) >= 0 ? 'flex' : 'none';
-    });
-  }
-
-  function renderizarSelecaoRota() {
-    const disponiveis = pontosDisponiveisParaSelecao();
-    listaSelecaoRota.innerHTML = '';
-    selecaoRota.style.display = disponiveis.length ? 'block' : 'none';
-    disponiveis.forEach(function (p) {
-      const label = document.createElement('label');
-      label.style.cssText = 'display:flex; align-items:center; gap:7px; padding:5px 0; cursor:pointer;';
-      label.dataset.busca = (p.nome_produtor + ' ' + p.nome_propriedade + ' ' + p.municipio).toLocaleLowerCase();
-      label.innerHTML = '<input type="checkbox" class="selecao-rota-produtor" value="' + p.id + '" checked style="width:auto; margin:0;">' +
-        '<span>' + p.nome_produtor + '<small style="display:block; color:var(--cinza);">' + p.nome_propriedade + ' — ' + p.municipio + '</small></span>';
-      listaSelecaoRota.appendChild(label);
-    });
-    listaSelecaoRota.querySelectorAll('input').forEach(function (checkbox) {
-      checkbox.addEventListener('change', atualizarContadorSelecaoRota);
-    });
-    atualizarContadorSelecaoRota();
-    filtrarSelecaoRota();
-  }
-
-  btnSelecionarTodosRota.addEventListener('click', function () {
-    listaSelecaoRota.querySelectorAll('input').forEach(function (checkbox) { checkbox.checked = true; });
-    atualizarContadorSelecaoRota();
-  });
-  btnLimparSelecaoRota.addEventListener('click', function () {
-    listaSelecaoRota.querySelectorAll('input').forEach(function (checkbox) { checkbox.checked = false; });
-    atualizarContadorSelecaoRota();
-  });
-  checkboxOcultarVisitados.addEventListener('change', renderizarSelecaoRota);
-  buscaSelecaoRota.addEventListener('input', filtrarSelecaoRota);
-  renderizarSelecaoRota();
-
   // Coordenadas aproximadas do centro de Fortaleza, usadas quando o
   // usuario escolhe "Sair de Fortaleza" como ponto de partida.
   const FORTALEZA_COORD = { lat: -3.71722, lon: -38.5433 };
+
+  // ---- Ponto de partida: localizacao atual, Fortaleza ou um produtor da lista ----
+  seletorPartida.addEventListener('change', function () {
+    partidaProdutorWrap.style.display = seletorPartida.value === 'produtor' ? 'block' : 'none';
+  });
 
   // ---- Ponto final da rota: produtor da lista ou marcado no mapa ----
   seletorDestinoTipo.addEventListener('change', function () {
@@ -609,6 +565,45 @@
     return h + 'h' + (m ? ' ' + m + 'min' : '');
   }
 
+  // ---- Geometria auxiliar: quem esta "no caminho" entre a partida e o destino ----
+  // Projecao equirretangular simples: boa o suficiente pra distancias regionais
+  // (dentro de um estado), nao precisa de precisao de geodesia real.
+  function paraXYKm(lat, lon, latRef) {
+    const R = 6371; // raio aproximado da Terra, em km
+    const radLatRef = latRef * Math.PI / 180;
+    return {
+      x: (lon * Math.PI / 180) * Math.cos(radLatRef) * R,
+      y: (lat * Math.PI / 180) * R,
+    };
+  }
+
+  // Distancia (em km) de um ponto ate o segmento de reta entre a e b.
+  function distanciaPontoSegmentoKm(ponto, a, b) {
+    const latRef = (a.lat + b.lat) / 2;
+    const P = paraXYKm(ponto.lat, ponto.lon, latRef);
+    const A = paraXYKm(a.lat, a.lon, latRef);
+    const B = paraXYKm(b.lat, b.lon, latRef);
+    const dx = B.x - A.x, dy = B.y - A.y;
+    const comprimento2 = dx * dx + dy * dy;
+    let t = comprimento2 === 0 ? 0 : ((P.x - A.x) * dx + (P.y - A.y) * dy) / comprimento2;
+    t = Math.max(0, Math.min(1, t));
+    const projX = A.x + t * dx, projY = A.y + t * dy;
+    return Math.sqrt((P.x - projX) * (P.x - projX) + (P.y - projY) * (P.y - projY));
+  }
+
+  // Raio (em km) usado para considerar um produtor "no caminho" entre a
+  // partida e o destino. Generoso o suficiente pra cobrir estradas que nao
+  // sao perfeitamente retas, sem trazer produtores de outras regioes.
+  const RAIO_CAMINHO_KM = 25;
+
+  // Entre os candidatos, devolve so quem esta a ate raioKm do caminho reto
+  // entre a partida e o destino.
+  function filtrarProdutoresNoCaminho(candidatos, partida, destino, raioKm) {
+    return candidatos.filter(function (p) {
+      return distanciaPontoSegmentoKm({ lat: p.lat, lon: p.lon }, partida, destino) <= raioKm;
+    });
+  }
+
   async function calcularRota(pontosMunicipio, partida, destinoEscolhido) {
     // Monta a lista de coordenadas: ponto de partida (se houver) + paradas + destino final (se houver)
     const coordenadas = [];
@@ -643,12 +638,6 @@
       pontosBase = pontosBase.filter(function (p) { return !p.visitado; });
     }
 
-    const idsSelecionados = new Set(
-      Array.from(listaSelecaoRota.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(function (checkbox) { return Number(checkbox.value); })
-    );
-    pontosBase = pontosBase.filter(function (p) { return idsSelecionados.has(p.id); });
-
     const destinoEscolhido = obterDestinoSelecionado();
     if (seletorDestinoTipo.value === 'mapa' && !destinoEscolhido) {
       rotaStatus.style.display = 'block';
@@ -666,6 +655,13 @@
     if (destinoEscolhido && destinoEscolhido.ehProdutor) {
       pontosAlvo = pontosBase.filter(function (p) { return p.id !== destinoEscolhido.produtor.id; });
     }
+    // O produtor escolhido como ponto de partida tambem nao entra na lista de paradas.
+    if (seletorPartida.value === 'produtor') {
+      const idPartidaAtual = Number(seletorPartidaProdutor.value);
+      if (idPartidaAtual) {
+        pontosAlvo = pontosAlvo.filter(function (p) { return p.id !== idPartidaAtual; });
+      }
+    }
 
     if (pontosAlvo.length === 0 && !destinoEscolhido) {
       rotaStatus.style.display = 'block';
@@ -677,9 +673,15 @@
     rotaStatus.style.display = 'block';
 
     function prosseguir(partida) {
+      // So filtra por proximidade quando ha um destino definido: sem destino,
+      // nao existe "caminho" pra medir distancia, entao mantem todo mundo.
+      let pontosParaRota = pontosAlvo;
+      if (destinoEscolhido && partida) {
+        pontosParaRota = filtrarProdutoresNoCaminho(pontosAlvo, partida, destinoEscolhido, RAIO_CAMINHO_KM);
+      }
       rotaStatusTexto.textContent = 'Calculando a melhor rota de entrega...';
-      calcularRota(pontosAlvo, partida, destinoEscolhido)
-        .then(function (dados) { montarRotaNoMapa(dados, pontosAlvo, partida, destinoEscolhido); })
+      calcularRota(pontosParaRota, partida, destinoEscolhido)
+        .then(function (dados) { montarRotaNoMapa(dados, pontosParaRota, partida, destinoEscolhido); })
         .catch(function (erro) {
           rotaStatusTexto.textContent = 'Erro: ' + erro.message + '. Tente novamente.';
         });
@@ -689,6 +691,22 @@
       // Ponto de partida fixo: nao precisa de geolocalizacao.
       rotaStatusTexto.textContent = 'Calculando a melhor rota de entrega...';
       prosseguir(FORTALEZA_COORD);
+    } else if (seletorPartida.value === 'produtor') {
+      // Ponto de partida escolhido manualmente entre os produtores da lista.
+      const idPartida = Number(seletorPartidaProdutor.value);
+      if (!idPartida) {
+        rotaStatus.style.display = 'block';
+        rotaStatusTexto.textContent = 'Selecione um produtor de partida antes de criar a rota.';
+        return;
+      }
+      const infoPartida = marcadoresPorId.get(idPartida);
+      if (!infoPartida) {
+        rotaStatus.style.display = 'block';
+        rotaStatusTexto.textContent = 'Produtor de partida sem coordenadas cadastradas.';
+        return;
+      }
+      rotaStatusTexto.textContent = 'Calculando a melhor rota de entrega...';
+      prosseguir({ lat: infoPartida.ponto.lat, lon: infoPartida.ponto.lon });
     } else if (navigator.geolocation) {
       rotaStatusTexto.textContent = 'Obtendo sua localização atual...';
       navigator.geolocation.getCurrentPosition(
@@ -743,6 +761,17 @@
     let numeroParada = 1;
     rotaLista.innerHTML = '';
 
+    // Texto do popup do marcador de partida, de acordo com a opcao escolhida
+    // (antes disso, o popup dizia sempre "sua localizacao", mesmo quando a
+    // partida era Fortaleza ou um produtor escolhido manualmente).
+    let rotuloPartida = 'Ponto de partida (sua localização)';
+    if (seletorPartida.value === 'fortaleza') {
+      rotuloPartida = 'Ponto de partida — Sair de Fortaleza';
+    } else if (seletorPartida.value === 'produtor') {
+      const opcaoPartida = seletorPartidaProdutor.options[seletorPartidaProdutor.selectedIndex];
+      rotuloPartida = 'Ponto de partida — ' + (opcaoPartida ? opcaoPartida.textContent : 'produtor selecionado');
+    }
+
     // trip.legs[i] traz a distância/duração do trecho entre a parada i e a parada i+1,
     // já na ordem otimizada devolvida pelo OSRM.
     const legs = trip.legs || [];
@@ -752,7 +781,7 @@
       if (entrada.item.tipo === 'partida') {
         marcadorPartida = L.marker([entrada.item.dado.lat, entrada.item.dado.lon], {
           icon: iconeNumerado('🏁', '#2f5233'),
-        }).addTo(mapa).bindPopup('Ponto de partida (sua localização)');
+        }).addTo(mapa).bindPopup(rotuloPartida);
         boundsPontos.push([entrada.item.dado.lat, entrada.item.dado.lon]);
       } else if (entrada.item.tipo === 'destino') {
         const d = entrada.item.dado;
