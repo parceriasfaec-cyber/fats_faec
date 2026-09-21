@@ -32,8 +32,22 @@ except ImportError:
     # as fotos antes de subir (nao ideal no plano gratuito, mas nao quebra).
     _PIL_DISPONIVEL = False
 
-SUPABASE_URL = (os.environ.get("SUPABASE_URL") or "").rstrip("/")
-SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+def _limpar_env(valor: str | None) -> str:
+    """Remove espaços/quebras de linha nas pontas e aspas que às vezes ficam
+    coladas por acidente ao configurar a variável de ambiente numa hospedagem
+    (Render, Vercel, etc.) — copiar e colar num campo de texto do painel
+    facilmente introduz isso, e o resultado e um token que o Supabase recusa
+    com "Invalid Compact JWS" sem dar uma pista clara do motivo."""
+    if not valor:
+        return ""
+    valor = valor.strip()
+    if len(valor) >= 2 and valor[0] == valor[-1] and valor[0] in ("'", '"'):
+        valor = valor[1:-1].strip()
+    return valor
+
+
+SUPABASE_URL = _limpar_env(os.environ.get("SUPABASE_URL")).rstrip("/")
+SUPABASE_SERVICE_KEY = _limpar_env(os.environ.get("SUPABASE_SERVICE_KEY"))
 BUCKET = os.environ.get("SUPABASE_BUCKET", "fotos-produtores")
 # Bucket separado para as fotos dos animais (crie-o no painel do Supabase:
 # Storage -> New bucket -> "fotos-animais", marcado como "Public bucket").
@@ -51,6 +65,30 @@ QUALIDADE_JPEG = 75
 
 def configurado() -> bool:
     return bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
+
+
+def _chave_parece_valida(chave: str) -> bool:
+    """Um JWT (o formato da service_role key) sempre tem 3 partes separadas
+    por ponto (header.payload.assinatura), cada uma em base64url. Se isso
+    não bater, é sinal quase certo de que a variável de ambiente foi colada
+    errada (cortada, com aspas, com espaço/quebra de linha no meio etc)."""
+    partes = chave.split(".")
+    return len(partes) == 3 and all(partes)
+
+
+def _erro_configuracao_chave() -> RuntimeError:
+    return RuntimeError(
+        "SUPABASE_SERVICE_KEY não parece uma service_role key válida (um JWT "
+        "tem 3 partes separadas por ponto). Isso costuma acontecer quando a "
+        "variável de ambiente foi colada errada na hospedagem (Render, Vercel "
+        "etc): cortada pela metade, com aspas sobrando, ou com espaço/quebra "
+        "de linha no meio. Confira em Project Settings > API > service_role "
+        "no painel do Supabase, copie o valor inteiro de novo e recole na "
+        "variável de ambiente do serviço publicado (não só no .env local) — "
+        "e confira também se o NOME da variável lá é exatamente "
+        "SUPABASE_SERVICE_KEY (sem '_ROLE_' no meio, que é o nome usado em "
+        "outros projetos)."
+    )
 
 
 def _comprimir_imagem(conteudo: bytes) -> tuple[bytes, str]:
@@ -103,6 +141,8 @@ def enviar_bytes(conteudo: bytes, nome_original: str, mimetype: str = "", bucket
             "SUPABASE_URL e SUPABASE_SERVICE_KEY nao estao configurados. "
             "Preencha essas variaveis no .env (veja o topo deste arquivo)."
         )
+    if not _chave_parece_valida(SUPABASE_SERVICE_KEY):
+        raise _erro_configuracao_chave()
 
     bucket_final = bucket or BUCKET
 
