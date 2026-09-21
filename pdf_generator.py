@@ -8,7 +8,8 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image,
+    PageBreak
 )
 from reportlab.lib.enums import TA_CENTER
 
@@ -38,6 +39,27 @@ obs_style = ParagraphStyle("Obs", parent=styles["Normal"], fontSize=9, leading=1
 def _v(row, key):
     val = row[key] if key in row.keys() else None
     return val if val not in (None, "", "None") else "-"
+
+
+def _carregar_imagem(nome, largura, altura):
+    """Baixa (se for URL do Supabase) ou le do disco (fotos antigas, salvas
+    localmente antes da migracao) uma foto e devolve um Image do reportlab
+    pronto pra entrar no PDF. Devolve None se nao tiver foto ou se algo der
+    errado (foto invalida, sem internet, etc) - nunca trava a geracao do PDF
+    por causa de uma foto problematica."""
+    if not nome or nome == "-":
+        return None
+    try:
+        if nome.startswith("http://") or nome.startswith("https://"):
+            resp = requests.get(nome, timeout=15)
+            resp.raise_for_status()
+            return Image(BytesIO(resp.content), width=largura, height=altura)
+        caminho = PASTA_FOTOS / nome
+        if caminho.exists():
+            return Image(str(caminho), width=largura, height=altura)
+    except Exception:
+        pass
+    return None
 
 
 def _v_data(row, key):
@@ -117,8 +139,11 @@ def _section(title):
     return Paragraph(title, section_style)
 
 
-def generate_pdf(row) -> BytesIO:
-    """row: sqlite3.Row (or dict-like) with all produtor fields."""
+def generate_pdf(row, animais=None) -> BytesIO:
+    """row: sqlite3.Row (or dict-like) with all produtor fields.
+    animais: lista opcional de animais (sqlite3.Row/dict-like) alocados a
+    este produtor - se informada, entra uma pagina extra na ficha com os
+    dados e as fotos de cada um."""
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -134,19 +159,7 @@ def generate_pdf(row) -> BytesIO:
     ]
 
     foto_nome = _v(row, "foto_produtor")
-    foto_imagem = None
-    if foto_nome and foto_nome != "-":
-        try:
-            if foto_nome.startswith("http://") or foto_nome.startswith("https://"):
-                resp = requests.get(foto_nome, timeout=15)
-                resp.raise_for_status()
-                foto_imagem = Image(BytesIO(resp.content), width=2.6 * cm, height=2.6 * cm)
-            else:
-                caminho_foto = PASTA_FOTOS / foto_nome
-                if caminho_foto.exists():
-                    foto_imagem = Image(str(caminho_foto), width=2.6 * cm, height=2.6 * cm)
-        except Exception:
-            foto_imagem = None
+    foto_imagem = _carregar_imagem(foto_nome, 2.6 * cm, 2.6 * cm)
 
     if foto_imagem:
         cabecalho = Table(
@@ -272,6 +285,40 @@ def generate_pdf(row) -> BytesIO:
         ]),
     )
     story.append(assinaturas)
+
+    if animais:
+        story.append(PageBreak())
+        story.append(_section("8. ANIMAIS (RECEPTORAS) ALOCADOS A ESTE PRODUTOR"))
+        story.append(Spacer(1, 6))
+
+        largura_foto = 3.6 * cm
+        placeholder_style = ParagraphStyle(
+            "SemFotoAnimal", parent=styles["Normal"], fontSize=8,
+            alignment=TA_CENTER, textColor=colors.HexColor("#999999"),
+        )
+        for animal in animais:
+            status_label = "Alocado" if _v(animal, "status") == "alocado" else "Disponível"
+            info = (
+                f"<b>Brinco FAEC:</b> {_v(animal, 'brinco_faec')} &nbsp;&nbsp; "
+                f"<b>Brinco Fazenda:</b> {_v(animal, 'brinco_fazenda')} &nbsp;&nbsp; "
+                f"<b>Peso:</b> {_v(animal, 'peso')} kg &nbsp;&nbsp; "
+                f"<b>Status:</b> {status_label}"
+            )
+            story.append(Paragraph(info, value_style))
+            story.append(Spacer(1, 3))
+
+            celulas_fotos = []
+            for campo in ("foto_1", "foto_2", "foto_3"):
+                imagem = _carregar_imagem(_v(animal, campo), largura_foto, largura_foto)
+                celulas_fotos.append(imagem if imagem else Paragraph("Sem foto", placeholder_style))
+
+            tabela_fotos = Table([celulas_fotos], colWidths=[largura_foto + 0.3 * cm] * 3)
+            tabela_fotos.setStyle(TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]))
+            story.append(tabela_fotos)
+            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#dddddd"), spaceBefore=8, spaceAfter=8))
 
     doc.build(story)
     buf.seek(0)

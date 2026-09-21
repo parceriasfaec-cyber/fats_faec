@@ -38,6 +38,7 @@
         <th class="nowrap">Peso (kg)</th>
         <th>Status</th>
         <th class="col-principal">Produtor</th>
+        <th class="nowrap">Fotos</th>
         <th class="actions">Ações</th>
       </tr>
     </thead>
@@ -69,6 +70,9 @@
           {% else %}
             -
           {% endif %}
+        </td>
+        <td class="nowrap">
+          {{ [a['foto_1'], a['foto_2'], a['foto_3']] | select | list | length }}
         </td>
         <td class="actions">
           <a class="btn btn-outline-terra btn-sm" href="{{ url_for('fotos_animal', aid=a['id']) }}">✏️ Editar</a>

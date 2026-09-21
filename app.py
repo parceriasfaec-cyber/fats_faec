@@ -173,6 +173,17 @@ app.jinja_env.filters["mascara_cpf_ou_registro"] = _formatar_cpf_ou_registro
 app.jinja_env.filters["mascara_telefone"] = _formatar_telefone
 
 
+@app.after_request
+def _sem_cache_nas_paginas(resposta):
+    """Evita que o navegador (principalmente no celular) guarde as páginas
+    em cache e mostre dados desatualizados depois de salvar/excluir algo
+    (ex: uma foto removida ainda aparecendo na lista até um refresh forçado).
+    Não afeta imagens/arquivos, só páginas HTML geradas pelo Flask."""
+    if resposta.content_type and resposta.content_type.startswith("text/html"):
+        resposta.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resposta
+
+
 @app.route("/fotos/<path:nome>")
 def foto(nome):
     return send_from_directory(str(UPLOAD_DIR), nome)
@@ -1463,10 +1474,13 @@ def animais():
 def pdf(pid):
     conn = get_connection()
     row = conn.execute("SELECT * FROM produtores WHERE id = ?", (pid,)).fetchone()
+    animais = conn.execute(
+        "SELECT * FROM animais WHERE produtor_id = ? ORDER BY brinco_faec", (pid,)
+    ).fetchall()
     conn.close()
     if row is None:
         abort(404)
-    buf = generate_pdf(row)
+    buf = generate_pdf(row, animais=animais)
     nome = (row["nome_produtor"] or "produtor").strip().replace(" ", "_")
     return send_file(
         buf, mimetype="application/pdf", as_attachment=False,
@@ -1586,6 +1600,54 @@ def exportar_alocacoes_excel():
 # usada pelo botão da tela inicial (templates/list.html).
 from exportar_animais import registrar_exportacao_animais
 registrar_exportacao_animais(app)
+
+
+@app.route("/debug-supabase")
+def debug_supabase():
+    """
+    Rota TEMPORARIA de diagnostico: mostra, sem expor a chave inteira, se
+    as variaveis de ambiente do Supabase Storage chegaram certas no
+    ambiente publicado (Vercel/Render/etc). Protegida por um token simples
+    (a propria SECRET_KEY do app) so pra nao ficar exposta a qualquer um
+    que descubra a URL.
+
+    Uso: /debug-supabase?token=<o valor da sua SECRET_KEY>
+
+    IMPORTANTE: remova esta rota depois de terminar o diagnostico -- ela e
+    so uma muleta temporaria, nao deve ficar num sistema publicado.
+    """
+    import supabase_storage as _ss
+
+    token_esperado = os.environ.get("SECRET_KEY", "")
+    if not token_esperado or request.args.get("token") != token_esperado:
+        abort(404)
+
+    def resumo_chave(valor):
+        if not valor:
+            return {"presente": False}
+        partes = valor.split(".")
+        return {
+            "presente": True,
+            "tamanho": len(valor),
+            "numero_de_partes_separadas_por_ponto": len(partes),
+            "partes_parecem_ok": len(partes) == 3 and all(partes),
+            "comeca_com": valor[:6],
+            "termina_com": valor[-6:],
+            "tem_aspas_na_ponta": valor[:1] in ("'", '"') or valor[-1:] in ("'", '"'),
+            "tem_espaco_ou_quebra_de_linha": any(c.isspace() for c in valor),
+        }
+
+    diagnostico = {
+        "SUPABASE_URL": {
+            "presente": bool(_ss.SUPABASE_URL),
+            "valor": _ss.SUPABASE_URL or None,
+        },
+        "SUPABASE_SERVICE_KEY": resumo_chave(_ss.SUPABASE_SERVICE_KEY),
+        "SUPABASE_BUCKET": _ss.BUCKET,
+        "SUPABASE_BUCKET_ANIMAIS": _ss.BUCKET_ANIMAIS,
+        "configurado()": _ss.configurado(),
+    }
+    return {"diagnostico_supabase": diagnostico}
 
 
 if __name__ == "__main__":
