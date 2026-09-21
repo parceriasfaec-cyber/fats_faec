@@ -1406,6 +1406,134 @@ def fotos_animal(aid):
     return render_template("fotos_animal.html", animal=animal)
 
 
+def _normalizar_brinco(valor: str) -> str:
+    """Deixa só letras e números maiúsculos, pra comparar brincos sem se
+    importar com espaço, traço, ponto ou maiúscula/minúscula
+    (ex: "V 1452", "v-1452" e "V1452" viram todas "V1452")."""
+    return re.sub(r"[^A-Z0-9]", "", (valor or "").upper())
+
+
+@app.route("/animais/importar-fotos", methods=["GET", "POST"])
+def importar_fotos_lote():
+    """
+    Importação em lote de fotos de animais: o nome de cada arquivo enviado
+    deve trazer o Brinco FAEC do animal (ex: "0001.jpg" vira a foto do
+    animal de brinco 0001), com um sufixo opcional _1/_2/_3 pra escolher a
+    posição (Foto 1/2/3) - sem sufixo, cai na primeira posição vazia.
+
+    Feito pra importar de uma vez uma pasta cheia de fotos já renomeadas
+    (ex: as ~200 fotos de uma visita a campo), em vez de subir animal por
+    animal pela tela /animais/<id>/fotos.
+    """
+    if request.method == "GET":
+        return render_template("importar_fotos_lote.html")
+
+    arquivos = request.files.getlist("fotos")
+    arquivos = [a for a in arquivos if a and a.filename]
+    if not arquivos:
+        flash("Selecione ao menos um arquivo antes de importar.", "error")
+        return redirect(url_for("importar_fotos_lote"))
+
+    conn = get_connection()
+    animais = conn.execute(
+        "SELECT id, brinco_faec, brinco_fazenda, foto_1, foto_2, foto_3 FROM animais"
+    ).fetchall()
+
+    # Indices de busca: brinco normalizado -> lista de animais que batem
+    # (uma lista, e nao um so animal, porque brinco_fazenda pode se repetir
+    # entre produtores diferentes - precisamos saber quando isso acontece
+    # pra marcar como ambiguo em vez de arriscar salvar no animal errado).
+    por_faec = {}
+    por_fazenda = {}
+    for a in animais:
+        por_faec.setdefault(_normalizar_brinco(a["brinco_faec"]), []).append(a)
+        if a["brinco_fazenda"]:
+            por_fazenda.setdefault(_normalizar_brinco(a["brinco_fazenda"]), []).append(a)
+
+    importados = []       # [{"arquivo":..., "brinco":..., "campo": "foto_1"}]
+    sem_correspondencia = []
+    ambiguos = []          # [{"arquivo":..., "brinco":..., "qtd": N}]
+    sem_vaga = []          # [{"arquivo":..., "brinco":...}]
+    erros = []             # [{"arquivo":..., "erro":...}]
+
+    # Acumula as atualizacoes por animal (um mesmo animal pode receber mais
+    # de uma foto nesta mesma importacao, ex: 0001_1.jpg e 0001_2.jpg).
+    atualizacoes_por_animal = {}  # {animal_id: {"foto_1": url, ...}}
+    slots_ja_usados = {}          # {animal_id: {"foto_1", "foto_2", ...} usados nesta importacao
+
+    padrao_sufixo = re.compile(r"^(.+)[_\-]([123])$")
+
+    for arquivo in arquivos:
+        nome_arquivo = arquivo.filename
+        base = os.path.splitext(nome_arquivo)[0]
+
+        slot_forcado = None
+        m = padrao_sufixo.match(base)
+        if m:
+            base, slot_forcado = m.group(1), int(m.group(2))
+
+        chave = _normalizar_brinco(base)
+        candidatos = por_faec.get(chave) or por_fazenda.get(chave) or []
+
+        if len(candidatos) == 0:
+            sem_correspondencia.append(nome_arquivo)
+            continue
+        if len(candidatos) > 1:
+            ambiguos.append({"arquivo": nome_arquivo, "brinco": base, "qtd": len(candidatos)})
+            continue
+
+        animal = candidatos[0]
+        ja_usados = slots_ja_usados.setdefault(animal["id"], set())
+        estado_atual = {**dict(animal), **atualizacoes_por_animal.get(animal["id"], {})}
+
+        if slot_forcado:
+            campo = f"foto_{slot_forcado}"
+        else:
+            campo = next(
+                (c for c in ("foto_1", "foto_2", "foto_3")
+                 if not estado_atual.get(c) and c not in ja_usados),
+                None,
+            )
+
+        if not campo or campo in ja_usados:
+            sem_vaga.append({"arquivo": nome_arquivo, "brinco": animal["brinco_faec"]})
+            continue
+
+        try:
+            url = enviar_bytes(
+                arquivo.read(), nome_arquivo, arquivo.mimetype or "",
+                bucket=BUCKET_ANIMAIS,
+            )
+        except Exception as e:
+            erros.append({"arquivo": nome_arquivo, "erro": str(e)})
+            continue
+
+        atualizacoes_por_animal.setdefault(animal["id"], {})[campo] = url
+        ja_usados.add(campo)
+        importados.append({"arquivo": nome_arquivo, "brinco": animal["brinco_faec"], "campo": campo})
+
+    for animal_id, campos in atualizacoes_por_animal.items():
+        set_clause = ", ".join(f"{c} = ?" for c in campos)
+        conn.execute(
+            f"UPDATE animais SET {set_clause}, atualizado_em = now() WHERE id = ?",
+            list(campos.values()) + [animal_id],
+        )
+    if atualizacoes_por_animal:
+        conn.commit()
+    conn.close()
+
+    return render_template(
+        "importar_fotos_lote.html",
+        resultado={
+            "importados": importados,
+            "sem_correspondencia": sem_correspondencia,
+            "ambiguos": ambiguos,
+            "sem_vaga": sem_vaga,
+            "erros": erros,
+        },
+    )
+
+
 @app.route("/animais/<int:aid>/excluir", methods=["POST"])
 def excluir_animal(aid):
     conn = get_connection()

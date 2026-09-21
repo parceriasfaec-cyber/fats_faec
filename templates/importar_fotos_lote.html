@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Importar fotos em lote - FATS{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0; color: var(--verde-escuro);">📥 Importar fotos em lote</h2>
+    <a href="{{ url_for('animais') }}" class="btn btn-ghost">← Voltar para animais</a>
+  </div>
+  <p style="color:var(--cinza); margin-top:-6px;">
+    Selecione várias fotos de uma vez. O sistema casa cada arquivo com o animal certo pelo
+    <strong>nome do arquivo</strong>, sem precisar abrir animal por animal.
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">Como nomear os arquivos</h3>
+  <ul style="line-height:1.7; color:var(--verde-escuro);">
+    <li>Renomeie cada foto com o <strong>Brinco FAEC</strong> do animal. Ex: o animal <code>0001</code> → arquivo <code>0001.jpg</code>.</li>
+    <li>Se o animal tiver mais de uma foto, acrescente <code>_1</code>, <code>_2</code> ou <code>_3</code> no final. Ex: <code>0001_1.jpg</code>, <code>0001_2.jpg</code>.</li>
+    <li>Sem esse sufixo, a foto entra na primeira posição vazia (Foto 1, depois 2, depois 3).</li>
+    <li>Maiúscula/minúscula, espaço, traço ou ponto no meio não atrapalham — <code>0001.jpg</code>, <code>0001 .JPG</code> e <code>0001-1.jpg</code> funcionam igual.</li>
+  </ul>
+  <p style="font-size:0.85rem; color:var(--cinza);">
+    ⚠️ Se estiver usando o site publicado (Vercel), evite mandar centenas de fotos de uma vez —
+    o limite de tamanho da requisição é menor lá. Rodando o sistema localmente no seu computador,
+    pode mandar todas de uma vez sem problema.
+  </p>
+</div>
+
+<div class="card">
+  <form method="post" enctype="multipart/form-data">
+    <label style="font-weight:600;">Fotos</label>
+    <p style="font-size:0.85rem; color:var(--cinza); margin:2px 0 8px;">
+      Selecione todos os arquivos de uma vez (Ctrl+A na janela de seleção, ou arraste a seleção toda).
+    </p>
+    <input type="file" name="fotos" accept="image/*" multiple required>
+    <div class="form-actions" style="margin-top:16px;">
+      <button class="btn btn-primary" type="submit">📤 Importar fotos selecionadas</button>
+    </div>
+  </form>
+</div>
+
+{% if resultado %}
+<div class="card">
+  <h3 style="margin-top:0;">Resultado da importação</h3>
+
+  <div class="grid" style="grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:20px;">
+    <div class="card card-stat" style="text-align:center; margin-bottom:0;">
+      <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Importadas</div>
+      <div style="font-size:1.8rem; font-weight:700; color:var(--verde);">{{ resultado.importados|length }}</div>
+    </div>
+    <div class="card card-stat acento-terra" style="text-align:center; margin-bottom:0;">
+      <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Sem correspondência</div>
+      <div style="font-size:1.8rem; font-weight:700;">{{ resultado.sem_correspondencia|length }}</div>
+    </div>
+    <div class="card card-stat acento-erro" style="text-align:center; margin-bottom:0;">
+      <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Ambíguas</div>
+      <div style="font-size:1.8rem; font-weight:700; color:var(--erro);">{{ resultado.ambiguos|length }}</div>
+    </div>
+    <div class="card card-stat acento-erro" style="text-align:center; margin-bottom:0;">
+      <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Sem vaga / erro</div>
+      <div style="font-size:1.8rem; font-weight:700; color:var(--erro);">{{ resultado.sem_vaga|length + resultado.erros|length }}</div>
+    </div>
+  </div>
+
+  {% if resultado.importados %}
+  <details open style="margin-bottom:14px;">
+    <summary style="cursor:pointer; font-weight:600; color:var(--verde-escuro);">
+      ✅ Importadas com sucesso ({{ resultado.importados|length }})
+    </summary>
+    <div class="tabela-scroll" style="margin-top:10px;">
+      <table class="list">
+        <thead><tr><th>Arquivo</th><th class="nowrap">Brinco FAEC</th><th class="nowrap">Posição</th></tr></thead>
+        <tbody>
+          {% for item in resultado.importados %}
+          <tr><td>{{ item.arquivo }}</td><td class="nowrap">{{ item.brinco }}</td><td class="nowrap">{{ item.campo }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+
+  {% if resultado.sem_correspondencia %}
+  <details style="margin-bottom:14px;">
+    <summary style="cursor:pointer; font-weight:600; color:var(--terra);">
+      ⚠️ Sem correspondência ({{ resultado.sem_correspondencia|length }}) — nenhum animal com esse brinco
+    </summary>
+    <ul style="margin-top:10px;">
+      {% for arquivo in resultado.sem_correspondencia %}
+      <li>{{ arquivo }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+
+  {% if resultado.ambiguos %}
+  <details style="margin-bottom:14px;">
+    <summary style="cursor:pointer; font-weight:600; color:var(--erro);">
+      ❗ Ambíguas ({{ resultado.ambiguos|length }}) — mais de um animal com esse brinco (precisa importar manualmente)
+    </summary>
+    <ul style="margin-top:10px;">
+      {% for item in resultado.ambiguos %}
+      <li>{{ item.arquivo }} — brinco "{{ item.brinco }}" bate com {{ item.qtd }} animais diferentes</li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+
+  {% if resultado.sem_vaga %}
+  <details style="margin-bottom:14px;">
+    <summary style="cursor:pointer; font-weight:600; color:var(--erro);">
+      🚫 Sem vaga ({{ resultado.sem_vaga|length }}) — animal já tem as 3 fotos preenchidas
+    </summary>
+    <ul style="margin-top:10px;">
+      {% for item in resultado.sem_vaga %}
+      <li>{{ item.arquivo }} — animal {{ item.brinco }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+
+  {% if resultado.erros %}
+  <details style="margin-bottom:14px;">
+    <summary style="cursor:pointer; font-weight:600; color:var(--erro);">
+      ❌ Erros ao enviar ({{ resultado.erros|length }})
+    </summary>
+    <ul style="margin-top:10px;">
+      {% for item in resultado.erros %}
+      <li>{{ item.arquivo }} — {{ item.erro }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
