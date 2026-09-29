@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS "FIV".produtores (
 
     nome_produtor TEXT,
     cpf TEXT,
+    rg TEXT,
     data_nascimento TEXT,
     telefone TEXT,
     dap_caf TEXT,
@@ -194,6 +195,9 @@ ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS peso TEXT;
 -- Migracao: garante a coluna etapa_atual em bancos que ja tinham a
 -- tabela produtores criada antes desta mudanca.
 ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS etapa_atual INTEGER NOT NULL DEFAULT 1;
+
+-- Migracao: garante a coluna rg em bancos que ja tinham a tabela produtores.
+ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS rg TEXT;
 
 -- Migracao: garante a coluna etapa em bancos que ja tinham a tabela
 -- visitas criada antes desta mudanca.

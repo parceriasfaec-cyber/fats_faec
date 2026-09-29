@@ -140,6 +140,19 @@ def _exibir_data(valor: str) -> str:
     return valor
 
 
+def _ler_paginacao(padrao=20):
+    """Lê ?pagina= e ?por_pagina= da URL. Só aceita 20, 50 ou 100 por página."""
+    try:
+        pagina = max(1, int(request.args.get("pagina", 1)))
+    except ValueError:
+        pagina = 1
+    try:
+        por_pagina = int(request.args.get("por_pagina", padrao))
+    except ValueError:
+        por_pagina = padrao
+    return pagina, (por_pagina if por_pagina in (20, 50, 100) else padrao)
+
+
 def _foto_atual(pid) -> str:
     """Retorna o nome da foto ja salva para esse produtor (para nao perder
     a foto quando o formulario e reenviado sem escolher um novo arquivo)."""
@@ -390,14 +403,22 @@ def painel_visitas():
             "tipo_visita": (ultima_visita["tipo_visita"] if ultima_visita else "") or "",
         })
 
+    pagina, por_pagina = _ler_paginacao()
+    total_filtrado = len(produtores)
+    total_paginas = max(1, -(-total_filtrado // por_pagina))
+    pagina = min(pagina, total_paginas)
+    inicio = (pagina - 1) * por_pagina
+
     return render_template(
         "painel_visitas.html",
-        produtores=produtores,
+        produtores=produtores[inicio:inicio + por_pagina],
         municipios=municipios,
         municipio_filtro=municipio_filtro,
         status_filtro=status_filtro,
         total_geral=len(rows),
         total_visitados=total_visitados,
+        pagina=pagina, total_paginas=total_paginas, por_pagina=por_pagina,
+        inicio_pagina=inicio, total_filtrado=total_filtrado,
     )
 
 
@@ -636,7 +657,7 @@ def dashboard():
     )
 
 
-@app.route("/")
+@app.route("/produtores")
 def index():
     busca = request.args.get("q", "").strip()
     municipio_filtro = request.args.get("municipio", "").strip()
@@ -646,7 +667,12 @@ def index():
     except ValueError:
         pagina = 1
     pagina = max(1, pagina)
-    POR_PAGINA = 20
+    # Quantos produtores por página: o usuário escolhe na tela (20, 50 ou 100)
+    try:
+        por_pagina_pedido = int(request.args.get("por_pagina", 20))
+    except ValueError:
+        por_pagina_pedido = 20
+    POR_PAGINA = por_pagina_pedido if por_pagina_pedido in (20, 50, 100) else 20
 
     try:
         conn = get_connection()
@@ -1624,22 +1650,26 @@ def animais():
         if not _erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
             raise
         return render_template("offline.html")
+    pagina, por_pagina = _ler_paginacao()
+    where_sql, params_busca = "", ()
     if busca:
         like = f"%{busca}%"
-        rows = conn.execute(
-            """SELECT a.*, p.nome_produtor
-               FROM animais a LEFT JOIN produtores p ON p.id = a.produtor_id
-               WHERE a.brinco_faec ILIKE ? OR a.brinco_fazenda ILIKE ?
-                  OR p.nome_produtor ILIKE ?
-               ORDER BY a.brinco_faec""",
-            (like, like, like),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            """SELECT a.*, p.nome_produtor
-               FROM animais a LEFT JOIN produtores p ON p.id = a.produtor_id
-               ORDER BY a.brinco_faec"""
-        ).fetchall()
+        where_sql = (
+            "WHERE a.brinco_faec ILIKE ? OR a.brinco_fazenda ILIKE ? OR p.nome_produtor ILIKE ?"
+        )
+        params_busca = (like, like, like)
+    base_from = "FROM animais a LEFT JOIN produtores p ON p.id = a.produtor_id"
+    total_filtrado = conn.execute(
+        f"SELECT COUNT(*) AS n {base_from} {where_sql}", params_busca
+    ).fetchone()["n"]
+    total_paginas = max(1, -(-total_filtrado // por_pagina))
+    pagina = min(pagina, total_paginas)
+    inicio = (pagina - 1) * por_pagina
+    rows = conn.execute(
+        f"SELECT a.*, p.nome_produtor {base_from} {where_sql} "
+        f"ORDER BY a.brinco_faec LIMIT ? OFFSET ?",
+        params_busca + (por_pagina, inicio),
+    ).fetchall()
     total = conn.execute("SELECT COUNT(*) AS n FROM animais").fetchone()["n"]
     disponiveis = conn.execute(
         "SELECT COUNT(*) AS n FROM animais WHERE status = 'disponivel'"
@@ -1648,6 +1678,8 @@ def animais():
     return render_template(
         "animais.html", animais=rows, busca=busca, total=total,
         disponiveis=disponiveis, alocados=total - disponiveis,
+        pagina=pagina, total_paginas=total_paginas, por_pagina=por_pagina,
+        inicio_pagina=inicio, total_filtrado=total_filtrado,
     )
 
 
@@ -1829,6 +1861,20 @@ def debug_supabase():
         "configurado()": _ss.configurado(),
     }
     return {"diagnostico_supabase": diagnostico}
+
+
+# ---- Importação de produtores por planilha ----
+from planilha_produtores import registrar_importacao
+registrar_importacao(app, get_connection, _formatar_cpf, _formatar_telefone, _erro_de_conexao)
+
+# ---- Painel de entrada (página inicial com os números) ----
+from painel_inicial import registrar_painel
+registrar_painel(app, get_connection, _campos_faltando, _ultimas_visitas_da_etapa,
+                 _erro_de_conexao, LIMITE_ANIMAIS_POR_PRODUTOR)
+
+# ---- Registro de visita em grupo (vários produtores, mesma data e motivo) ----
+from visitas_grupo import registrar_visitas_grupo
+registrar_visitas_grupo(app, get_connection, _erro_de_conexao)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS "FIV".produtores (
     -- 1. Identificação geral
     nome_produtor       TEXT,
     cpf                 TEXT,
+    rg                  TEXT,
     data_nascimento     TEXT,
     telefone            TEXT,
     dap_caf             TEXT,
@@ -164,6 +165,7 @@ CREATE INDEX IF NOT EXISTS idx_visitas_etapa ON "FIV".visitas (etapa);
 -- mudança, sem essas colunas). Cada produtor guarda a SUA própria etapa
 -- atual, então times diferentes podem avançar em ritmos diferentes.
 ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS etapa_atual INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS rg TEXT;
 ALTER TABLE "FIV".visitas ADD COLUMN IF NOT EXISTS etapa INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE "FIV".visitas ADD COLUMN IF NOT EXISTS ativa BOOLEAN NOT NULL DEFAULT TRUE;
 

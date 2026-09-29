@@ -1,10 +1,14 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pag %}
 {% block title %}Painel de Visitas - FATS{% endblock %}
 {% block content %}
 
 <div class="toolbar">
   <h2 style="margin:0; color: var(--verde-escuro);">Painel de Visitas</h2>
-  <a href="{{ url_for('mapa') }}" class="btn btn-secondary">🗺️ Ver no mapa</a>
+  <span style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a href="{{ url_for('visita_grupo') }}" class="btn btn-primary">👥 Registrar visita em grupo</a>
+    <a href="{{ url_for('mapa') }}" class="btn btn-secondary">🗺️ Ver no mapa</a>
+  </span>
 </div>
 
 <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
@@ -40,6 +44,10 @@
         <option value="visitado" {% if status_filtro == 'visitado' %}selected{% endif %}>✔ Já visitados</option>
         <option value="pendente" {% if status_filtro == 'pendente' %}selected{% endif %}>⏳ Pendentes</option>
       </select>
+    </div>
+    <div style="min-width:150px;">
+      <label>Exibir</label>
+      {{ pag.seletor(por_pagina) }}
     </div>
   </form>
 
@@ -87,6 +95,10 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
+  <div style="padding:0 18px 16px;">
+    {{ pag.rodape('painel_visitas', {'municipio': municipio_filtro, 'status': status_filtro},
+                  pagina, total_paginas, por_pagina, inicio_pagina, produtores|length, total_filtrado, 'produtores') }}
   </div>
   {% else %}
   <div class="empty" style="padding:60px 20px;">Nenhum produtor encontrado para esse filtro.</div>

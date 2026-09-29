@@ -1,6 +1,6 @@
 # Todos os campos do formulario, na ordem em que aparecem na ficha
 FIELDS = [
-    "nome_produtor", "cpf", "data_nascimento", "telefone", "dap_caf",
+    "nome_produtor", "cpf", "rg", "data_nascimento", "telefone", "dap_caf",
     "nome_propriedade", "municipio", "comunidade", "car", "latitude", "longitude",
     "assistido_ateg", "tecnico_responsavel", "foto_produtor",
 
@@ -29,6 +29,7 @@ FIELDS = [
 FIELD_LABELS = {
     "nome_produtor": "Nome do Produtor",
     "cpf": "CPF",
+    "rg": "RG",
     "data_nascimento": "Data de Nascimento",
     "telefone": "Telefone / Zap",
     "dap_caf": "DAP / CAF",

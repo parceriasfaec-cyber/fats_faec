@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pag %}
 {% block title %}Produtores - FATS{% endblock %}
 {% block content %}
 
@@ -8,6 +9,20 @@
     <p class="subtitulo">Ficha de campo — acompanhamento por núcleo e ATEG</p>
   </div>
   <a href="{{ url_for('novo') }}" class="btn btn-primary">+ Novo Produtor</a>
+</div>
+
+<!-- Importação de produtores por planilha (sempre visível) -->
+<div class="card" id="importar-produtores" style="margin-bottom:16px;">
+  <form method="post" action="{{ url_for('importar_produtores') }}" enctype="multipart/form-data"
+        style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;"
+        onsubmit="var b=document.getElementById('btn-importar'); b.disabled=true; b.textContent='Importando...';">
+    <strong>📥 Importar produtores (Excel)</strong>
+    <input type="file" name="planilha" accept=".xlsx" required>
+    <button type="submit" class="btn btn-primary" id="btn-importar">Importar planilha</button>
+    <span style="font-size:0.8rem; color:var(--cinza);">
+      Colunas: Nome, CPF, RG, Propriedade, Município e Telefone. CPFs já cadastrados não são duplicados (se o RG estiver vazio, ele é preenchido).
+    </span>
+  </form>
 </div>
 
 <div class="stats-row">
@@ -49,6 +64,8 @@
       <a href="{{ url_for('index', q=busca, municipio=municipio_filtro, ateg='Não') }}"
          class="{{ 'selecionado' if ateg_filtro == 'Não' else '' }}">Não</a>
     </span>
+
+    {{ pag.seletor(por_pagina) }}
 
     <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
 
@@ -121,17 +138,8 @@
   </table>
   </div>
 
-  <div class="paginacao">
-    <span>
-      Mostrando {{ inicio_pagina + 1 }}–{{ inicio_pagina + produtores|length }} de {{ total_filtrado }} produtores
-    </span>
-    <span class="botoes">
-      <a class="btn btn-ghost btn-sm {{ 'desabilitado' if pagina <= 1 else '' }}"
-         href="{{ url_for('index', q=busca, municipio=municipio_filtro, ateg=ateg_filtro, pagina=pagina-1) }}">← Anterior</a>
-      <a class="btn btn-ghost btn-sm {{ 'desabilitado' if pagina >= total_paginas else '' }}"
-         href="{{ url_for('index', q=busca, municipio=municipio_filtro, ateg=ateg_filtro, pagina=pagina+1) }}">Próxima →</a>
-    </span>
-  </div>
+  {{ pag.rodape('index', {'q': busca, 'municipio': municipio_filtro, 'ateg': ateg_filtro},
+                pagina, total_paginas, por_pagina, inicio_pagina, produtores|length, total_filtrado, 'produtores') }}
   {% else %}
     <div class="empty">
       {% if busca or municipio_filtro or ateg_filtro %}

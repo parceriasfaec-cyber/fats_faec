@@ -365,6 +365,9 @@
       </div>
     </div>
     <nav>
+      <a href="{{ url_for('inicio') }}" class="{{ 'ativo' if request.endpoint == 'inicio' else '' }}">
+        <span class="icone">🏠</span> Início
+      </a>
       <a href="{{ url_for('index') }}" class="{{ 'ativo' if request.endpoint == 'index' else '' }}">
         <span class="icone">👤</span> Produtores
       </a>

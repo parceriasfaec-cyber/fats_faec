@@ -51,6 +51,12 @@ def init_fila():
             {colunas_sql}
         )
     """)
+    # Fila criada por uma versao anterior nao tem as colunas novas (ex: rg):
+    # acrescenta o que estiver faltando, sem apagar nada.
+    existentes = {r[1] for r in conn.execute("PRAGMA table_info(fila_produtores)")}
+    for c in _CAMPOS_TEXTO:
+        if c not in existentes:
+            conn.execute(f'ALTER TABLE fila_produtores ADD COLUMN "{c}" TEXT')
     conn.execute("""
         CREATE TABLE IF NOT EXISTS fila_visitas (
             id_local INTEGER PRIMARY KEY AUTOINCREMENT,

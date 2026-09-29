@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Visita em grupo - FATS{% endblock %}
+{% block content %}
+
+<style>
+  .vg-topo { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  .vg-topo h1 { margin:0; font-size:1.7rem; color:var(--verde-escuro); }
+  .vg-topo p { margin:4px 0 0; color:var(--cinza); font-size:0.92rem; }
+  .vg-dados { display:grid; grid-template-columns:200px 1fr; gap:16px; align-items:start; }
+  .vg-dados .largo { grid-column:1 / -1; }
+  .vg-dados label, .vg-ferr label { display:block; font-size:0.85rem; font-weight:600; color:var(--verde-escuro); margin-bottom:4px; }
+  .vg-ferr { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+  .vg-ferr .campo { flex:1 1 220px; }
+  .vg-ferr .acoes { display:flex; gap:8px; flex-wrap:wrap; }
+  .vg-lista { border:1px solid var(--borda); border-radius:6px; max-height:440px; overflow-y:auto; background:#fff; }
+  .vg-item { display:grid; grid-template-columns:28px 1fr auto; gap:10px; align-items:center; padding:10px 14px; border-bottom:1px solid #eadfc4; cursor:pointer; margin:0; font-weight:400; }
+  .vg-item:last-child { border-bottom:none; }
+  .vg-item:hover { background:#fbf6ea; }
+  .vg-item input { width:18px; height:18px; margin:0; accent-color:var(--verde); }
+  .vg-item .nome { font-weight:600; color:var(--verde-escuro); text-transform:uppercase; font-size:0.93rem; }
+  .vg-item .sub { font-size:0.78rem; color:var(--cinza); text-transform:uppercase; }
+  .vg-item .mun { font-size:0.82rem; color:var(--cinza); text-align:right; }
+  .vg-item .ja { display:none; margin-top:2px; font-size:0.75rem; color:var(--terra); font-weight:600; text-align:right; text-transform:none; }
+  .vg-item.ja-tem { background:#f3ecdb; cursor:not-allowed; }
+  .vg-item.ja-tem .nome, .vg-item.ja-tem .sub, .vg-item.ja-tem .mun { opacity:0.55; }
+  .vg-item.ja-tem .ja { display:block; }
+  .vg-vazio { padding:26px; text-align:center; color:var(--cinza); display:none; }
+  .vg-barra { position:sticky; bottom:0; z-index:5; margin-top:14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+              background:var(--verde-escuro); color:#eadfc6; border-radius:6px; padding:12px 18px; border-bottom:3px solid var(--terra); }
+  .vg-barra strong { font-family:var(--fonte-titulo); font-size:1.4rem; color:#fff; margin-right:6px; }
+  @media (max-width:700px) { .vg-dados { grid-template-columns:1fr; } }
+</style>
+
+<div class="vg-topo">
+  <div>
+    <h1>Visita em grupo</h1>
+    <p>Informe a data e o motivo uma vez e marque os produtores visitados. O sistema cria uma visita para cada um.</p>
+  </div>
+  <a href="{{ url_for('painel_visitas') }}" class="btn btn-ghost">← Voltar para as visitas</a>
+</div>
+
+<form method="post" id="form-grupo">
+  <div class="card">
+    <div class="vg-dados">
+      <div>
+        <label for="data_visita">Data da visita</label>
+        <input type="date" id="data_visita" name="data_visita" value="{{ valores.data_visita }}" required>
+      </div>
+      <div>
+        <label for="tipo_visita">Motivo da visita</label>
+        <select id="tipo_visita" name="tipo_visita" required>
+          <option value="">-- selecione --</option>
+          {% for tipo in tipos_visita %}
+          <option value="{{ tipo }}" {{ 'selected' if tipo == valores.tipo_visita else '' }}>{{ tipo }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="largo">
+        <label for="observacoes">Observações (opcional)</label>
+        <textarea id="observacoes" name="observacoes" rows="2" placeholder="Vale para todas as visitas deste grupo">{{ valores.observacoes }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="vg-ferr">
+      <div class="campo">
+        <label for="busca">Buscar produtor</label>
+        <input type="search" id="busca" placeholder="Nome ou propriedade" autocomplete="off">
+      </div>
+      <div class="campo" style="flex-basis:200px;">
+        <label for="municipio">Município</label>
+        <select id="municipio">
+          <option value="">Todos</option>
+          {% for m in municipios %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="acoes">
+        <button type="button" class="btn btn-ghost" id="marcar-visiveis">Marcar todos da lista</button>
+        <button type="button" class="btn btn-ghost" id="limpar">Limpar seleção</button>
+      </div>
+    </div>
+
+    <div class="vg-lista" id="lista">
+      {% for p in produtores %}
+      <label class="vg-item" data-nome="{{ (p.nome_produtor or '')|lower }} {{ (p.nome_propriedade or '')|lower }}"
+             data-municipio="{{ (p.municipio or '')|upper }}" data-motivos='{{ p.motivos_json }}'>
+        <input type="checkbox" name="produtor_id" value="{{ p.id }}" {{ 'checked' if p.marcado else '' }}>
+        <span>
+          <span class="nome">{{ p.nome_produtor or '-' }}</span><br>
+          <span class="sub">{{ p.nome_propriedade or '-' }}</span>
+        </span>
+        <span>
+          <span class="mun">{{ (p.municipio or '-')|upper }}</span>
+          <span class="ja">já tem esse motivo</span>
+        </span>
+      </label>
+      {% endfor %}
+      <div class="vg-vazio" id="vazio">Nenhum produtor encontrado com esses filtros.</div>
+    </div>
+    {% if not produtores %}
+      <p style="margin:10px 0 0; color:var(--cinza);">Nenhum produtor cadastrado ainda.</p>
+    {% endif %}
+  </div>
+
+  <div class="vg-barra">
+    <span><strong id="contador">0</strong> <span id="contador-texto">produtores marcados</span></span>
+    <button type="submit" class="btn btn-primary" id="enviar">Registrar visita em grupo</button>
+  </div>
+</form>
+
+<script>
+(function () {
+  var itens = Array.prototype.slice.call(document.querySelectorAll('.vg-item'));
+  var motivo = document.getElementById('tipo_visita');
+  var busca = document.getElementById('busca');
+  var municipio = document.getElementById('municipio');
+  var contador = document.getElementById('contador');
+  var contadorTexto = document.getElementById('contador-texto');
+  var vazio = document.getElementById('vazio');
+
+  function caixa(item) { return item.querySelector('input'); }
+
+  function atualizarContador() {
+    var n = itens.filter(function (i) { return caixa(i).checked; }).length;
+    contador.textContent = n;
+    contadorTexto.textContent = n === 1 ? 'produtor marcado' : 'produtores marcados';
+  }
+
+  // quem já tem o motivo escolhido fica bloqueado (o sistema não repete o mesmo motivo)
+  function aplicarMotivo() {
+    itens.forEach(function (item) {
+      var motivos = JSON.parse(item.dataset.motivos || '[]');
+      var tem = !!motivo.value && motivos.indexOf(motivo.value) !== -1;
+      item.classList.toggle('ja-tem', tem);
+      caixa(item).disabled = tem;
+      if (tem) { caixa(item).checked = false; }
+    });
+    atualizarContador();
+  }
+
+  function aplicarFiltro() {
+    var texto = busca.value.trim().toLowerCase();
+    var mun = municipio.value;
+    var visiveis = 0;
+    itens.forEach(function (item) {
+      var ok = (!texto || item.dataset.nome.indexOf(texto) !== -1) && (!mun || item.dataset.municipio === mun);
+      item.style.display = ok ? '' : 'none';
+      if (ok) { visiveis++; }
+    });
+    vazio.style.display = visiveis ? 'none' : 'block';
+  }
+
+  motivo.addEventListener('change', aplicarMotivo);
+  busca.addEventListener('input', aplicarFiltro);
+  municipio.addEventListener('change', aplicarFiltro);
+  itens.forEach(function (i) { caixa(i).addEventListener('change', atualizarContador); });
+
+  document.getElementById('marcar-visiveis').addEventListener('click', function () {
+    itens.forEach(function (i) {
+      if (i.style.display !== 'none' && !caixa(i).disabled) { caixa(i).checked = true; }
+    });
+    atualizarContador();
+  });
+  document.getElementById('limpar').addEventListener('click', function () {
+    itens.forEach(function (i) { caixa(i).checked = false; });
+    atualizarContador();
+  });
+
+  document.getElementById('form-grupo').addEventListener('submit', function (e) {
+    var n = itens.filter(function (i) { return caixa(i).checked; }).length;
+    if (!n) { e.preventDefault(); alert('Marque pelo menos um produtor.'); return; }
+    if (!confirm('Registrar "' + motivo.value + '" para ' + n + ' produtor(es)?')) { e.preventDefault(); }
+  });
+
+  aplicarMotivo();
+  aplicarFiltro();
+})();
+</script>
+{% endblock %}

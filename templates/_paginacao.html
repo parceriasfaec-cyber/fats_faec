@@ -1,0 +1,42 @@
+{# Peças de paginação compartilhadas por Produtores, Visitas e Animais.
+   Uso na página:
+     {% import "_paginacao.html" as pag %}
+     {{ pag.seletor(por_pagina) }}                       (dentro do <form> dos filtros)
+     {{ pag.rodape('endpoint', {'q': busca}, pagina, total_paginas, por_pagina,
+                    inicio_pagina, qtd_na_pagina, total_filtrado, 'animais') }}
+#}
+
+{% macro seletor(por_pagina) %}
+<select name="por_pagina" onchange="this.form.submit()" title="Quantos mostrar por página">
+  {% for n in (20, 50, 100) %}
+    <option value="{{ n }}" {{ 'selected' if n == por_pagina else '' }}>{{ n }} por página</option>
+  {% endfor %}
+</select>
+{% endmacro %}
+
+{% macro rodape(endpoint, filtros, pagina, total_paginas, por_pagina, inicio, qtd_na_pagina, total, rotulo) %}
+  {# só leva pra próxima página os filtros que estão preenchidos #}
+  {% set params = {} %}
+  {% for k, v in filtros.items() %}{% if v %}{% set _ = params.update({k: v}) %}{% endif %}{% endfor %}
+  <div class="paginacao">
+    <span>Mostrando {{ inicio + 1 }}–{{ inicio + qtd_na_pagina }} de {{ total }} {{ rotulo }}</span>
+    <span class="botoes" style="flex-wrap:wrap; align-items:center;">
+      <a class="btn btn-ghost btn-sm {{ 'desabilitado' if pagina <= 1 else '' }}"
+         href="{{ url_for(endpoint, **dict(params, por_pagina=por_pagina, pagina=pagina-1)) }}">← Anterior</a>
+      {% if total_paginas > 1 %}
+        {% set ns = namespace(ultimo=0) %}
+        {% for n in range(1, total_paginas + 1) %}
+          {% if n == 1 or n == total_paginas or (n - pagina)|abs <= 2 or (n == 2 and pagina == 5) or (n == total_paginas - 1 and pagina == total_paginas - 4) %}
+            {% if n - ns.ultimo > 1 %}<span style="color:var(--cinza);">…</span>{% endif %}
+            <a class="btn btn-sm {{ 'btn-primary' if n == pagina else 'btn-ghost' }}"
+               {% if n == pagina %}aria-current="page"{% endif %}
+               href="{{ url_for(endpoint, **dict(params, por_pagina=por_pagina, pagina=n)) }}">{{ n }}</a>
+            {% set ns.ultimo = n %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+      <a class="btn btn-ghost btn-sm {{ 'desabilitado' if pagina >= total_paginas else '' }}"
+         href="{{ url_for(endpoint, **dict(params, por_pagina=por_pagina, pagina=pagina+1)) }}">Próxima →</a>
+    </span>
+  </div>
+{% endmacro %}

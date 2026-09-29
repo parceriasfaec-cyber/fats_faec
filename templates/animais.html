@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_paginacao.html" as pag %}
 {% block title %}Animais - FATS{% endblock %}
 {% block content %}
 <div class="grid" style="grid-template-columns: repeat(3, 1fr); gap:16px; margin-bottom:16px;">
@@ -20,6 +21,7 @@
   <div class="toolbar">
     <form method="get" style="display:flex; gap:8px;">
       <input type="search" name="q" placeholder="Buscar por brinco ou produtor" value="{{ busca }}" style="width:320px;">
+      {{ pag.seletor(por_pagina) }}
       <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
     </form>
     <a href="{{ url_for('index') }}" class="btn btn-ghost">👥 Produtores</a>
@@ -86,6 +88,8 @@
     </tbody>
   </table>
   </div>
+  {{ pag.rodape('animais', {'q': busca}, pagina, total_paginas, por_pagina,
+                inicio_pagina, animais|length, total_filtrado, 'animais') }}
   {% else %}
     <div class="empty">
       {% if busca %}

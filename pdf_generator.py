@@ -184,6 +184,7 @@ def generate_pdf(row, animais=None) -> BytesIO:
     story.append(_grid([
         ("Nome do Produtor", _v(row, "nome_produtor").upper()),
         ("CPF", _v_cpf(row, "cpf")),
+        ("RG", _v(row, "rg")),
         ("Data de Nascimento", _v_data(row, "data_nascimento")),
         ("Telefone / Zap", _v_telefone(row, "telefone")),
         ("DAP / CAF", _v(row, "dap_caf")),

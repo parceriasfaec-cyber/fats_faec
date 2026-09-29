@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Painel - FATS{% endblock %}
+{% block content %}
+
+<style>
+  .pn { --pn-raio: 6px; }
+  .pn a { color: inherit; }
+
+  /* ---- cabeçalho ---- */
+  .pn-topo { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
+  .pn-topo h1 { margin:0; font-size:2rem; color:var(--verde-escuro); line-height:1.1; }
+  .pn-topo p { margin:6px 0 0; color:var(--cinza); font-size:0.95rem; }
+  .pn-acoes { display:flex; gap:8px; flex-wrap:wrap; }
+
+  /* ---- destaque: andamento do programa (faixa de couro) ---- */
+  .pn-destaque {
+    background:var(--verde-escuro); color:#eadfc6;
+    border-radius:var(--pn-raio); border-bottom:4px solid var(--terra);
+    display:grid; grid-template-columns: 1.15fr 1fr; gap:0; overflow:hidden;
+  }
+  .pn-destaque > div { padding:26px 30px 24px; }
+  .pn-destaque > div + div { border-left:1px solid rgba(234,223,198,0.16); }
+  .pn-destaque h2 { margin:0 0 14px; font-size:1.05rem; font-weight:500; color:#cbbd9c; font-family:var(--fonte-corpo); letter-spacing:0; }
+  .pn-grande { font-family:var(--fonte-titulo); font-weight:700; font-size:4.4rem; line-height:0.95; color:#fff; }
+  .pn-grande small { font-size:1.6rem; font-weight:500; color:#b3a487; margin-left:6px; }
+  .pn-legenda { margin:10px 0 18px; font-size:0.95rem; color:#d9cdb5; }
+  .pn-trilho { height:14px; border-radius:7px; background:rgba(234,223,198,0.16); overflow:hidden; display:flex; }
+  .pn-trilho .feito { background:#a9b86b; }
+  .pn-trilho .meio { background:#d08a4e; }
+  .pn-chaves { display:flex; gap:18px; flex-wrap:wrap; margin-top:10px; font-size:0.85rem; color:#cbbd9c; }
+  .pn-chaves i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+
+  /* ---- pendências: o que precisa de ação ---- */
+  .pn-secao { margin:30px 0 10px; font-size:1.25rem; color:var(--verde-escuro); }
+  .pn-secao span { font-family:var(--fonte-corpo); font-size:0.88rem; font-weight:400; color:var(--cinza); margin-left:8px; }
+  .pn-pendencias { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; }
+  .pn-pend {
+    display:flex; align-items:center; gap:14px; text-decoration:none;
+    background:#fbf6ea; border:1px solid var(--borda); border-left:5px solid var(--terra);
+    border-radius:var(--pn-raio); padding:14px 16px;
+  }
+  .pn-pend:hover { background:#fff; border-color:var(--terra); }
+  .pn-pend.ok { border-left-color:var(--verde); }
+  .pn-pend b { font-family:var(--fonte-titulo); font-size:2rem; line-height:1; color:var(--terra); min-width:2.2ch; text-align:right; }
+  .pn-pend.ok b { color:var(--verde); }
+  .pn-pend span { font-size:0.92rem; line-height:1.3; color:var(--tinta); }
+  .pn-pend em { display:block; font-style:normal; font-size:0.8rem; color:var(--cinza); }
+
+  /* ---- resumo: uma faixa com quatro números ---- */
+  .pn-faixa { display:grid; grid-template-columns:repeat(4, 1fr); background:#fbf6ea; border:1px solid var(--borda); border-radius:var(--pn-raio); }
+  .pn-faixa > div { padding:16px 20px; }
+  .pn-faixa > div + div { border-left:1px solid var(--borda); }
+  .pn-faixa b { display:block; font-family:var(--fonte-titulo); font-size:2rem; line-height:1.1; color:var(--verde-escuro); }
+  .pn-faixa b small { font-family:var(--fonte-corpo); font-size:0.85rem; font-weight:400; color:var(--cinza); margin-left:6px; }
+  .pn-faixa span { font-size:0.88rem; color:var(--cinza); }
+
+  /* ---- tabela por município ---- */
+  .pn-tabela { background:#fbf6ea; border:1px solid var(--borda); border-radius:var(--pn-raio); overflow:hidden; }
+  .pn-tabela table { width:100%; border-collapse:collapse; font-size:0.94rem; }
+  .pn-tabela th { text-align:left; font-weight:600; font-size:0.82rem; color:var(--cinza); padding:12px 16px; background:#f3ead4; border-bottom:1px solid var(--borda); white-space:nowrap; }
+  .pn-tabela td { padding:12px 16px; border-bottom:1px solid #e9dcbc; vertical-align:middle; }
+  .pn-tabela tr:last-child td { border-bottom:none; }
+  .pn-tabela tfoot td { background:#f3ead4; font-weight:700; border-top:2px solid var(--borda); }
+  .pn-tabela td.num, .pn-tabela th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .pn-mun { font-weight:600; color:var(--verde-escuro); text-decoration:none; border-bottom:2px solid var(--borda); }
+  .pn-mun:hover { border-bottom-color:var(--terra); color:var(--terra); }
+  .pn-mini { display:grid; grid-template-columns:minmax(80px,1fr) 7.5ch; align-items:center; gap:10px; min-width:170px; }
+  .pn-mini .trilho { height:8px; border-radius:4px; background:#e6d9b8; overflow:hidden; }
+  .pn-mini .trilho span { display:block; height:100%; background:var(--verde); border-radius:4px; }
+  .pn-mini em { font-style:normal; font-size:0.85rem; color:var(--cinza); text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .pn-vazio { margin:0; padding:22px; color:var(--cinza); }
+
+  @media (max-width: 900px) {
+    .pn-destaque { grid-template-columns:1fr; }
+    .pn-destaque > div + div { border-left:none; border-top:1px solid rgba(234,223,198,0.16); }
+    .pn-faixa { grid-template-columns:1fr 1fr; }
+    .pn-faixa > div:nth-child(3) { border-left:none; }
+    .pn-faixa > div:nth-child(n+3) { border-top:1px solid var(--borda); }
+    .pn-grande { font-size:3.4rem; }
+    .pn-tabela { overflow-x:auto; }
+  }
+</style>
+
+<div class="pn">
+
+  <div class="pn-topo">
+    <div>
+      <h1>Painel</h1>
+      <p>Matrizes do Amanhã · FIV Ceará — situação atual do programa</p>
+    </div>
+    <div class="pn-acoes">
+      <a href="{{ url_for('novo') }}" class="btn btn-primary">+ Novo produtor</a>
+      <a href="{{ url_for('index') }}" class="btn btn-ghost">Ver todos os produtores</a>
+    </div>
+  </div>
+
+  <!-- Destaque: visitas e animais -->
+  <section class="pn-destaque">
+    <div>
+      <h2>Produtores visitados na etapa atual</h2>
+      <div class="pn-grande">{{ qtd_visitados }}<small>de {{ total_produtores }}</small></div>
+      <p class="pn-legenda">{{ pct_visitados }}% já receberam visita · faltam {{ qtd_pendentes }}</p>
+      <div class="pn-trilho" role="img" aria-label="{{ pct_visitados }}% dos produtores visitados">
+        <div class="feito" style="width:{{ pct_visitados }}%"></div>
+      </div>
+      <div class="pn-chaves">
+        <span><i style="background:#a9b86b"></i>Visitados ({{ qtd_visitados }})</span>
+        <span><i style="background:rgba(234,223,198,0.3)"></i>Pendentes ({{ qtd_pendentes }})</span>
+      </div>
+    </div>
+    <div>
+      <h2>Animais do lote FIV</h2>
+      <div class="pn-grande">{{ animais_alocados }}<small>de {{ total_animais }}</small></div>
+      <p class="pn-legenda">{{ animais_alocados }} já estão com produtores · {{ animais_disponiveis }} aguardando distribuição</p>
+      <div class="pn-trilho" role="img" aria-label="{{ animais_alocados }} de {{ total_animais }} animais alocados">
+        <div class="feito" style="width:{{ (animais_alocados / total_animais * 100) if total_animais else 0 }}%"></div>
+      </div>
+      <div class="pn-chaves">
+        <span><i style="background:#a9b86b"></i>Alocados ({{ animais_alocados }})</span>
+        <span><i style="background:rgba(234,223,198,0.3)"></i>Disponíveis ({{ animais_disponiveis }})</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- O que precisa de atenção -->
+  <h2 class="pn-secao">O que precisa de atenção</h2>
+  <div class="pn-pendencias">
+    <a class="pn-pend {{ '' if qtd_incompletos else 'ok' }}" href="{{ url_for('dashboard') }}">
+      <b>{{ qtd_incompletos }}</b>
+      <span>fichas incompletas<em>Ver o que falta em cada uma</em></span>
+    </a>
+    <a class="pn-pend {{ '' if qtd_pendentes else 'ok' }}" href="{{ url_for('painel_visitas', status='pendente') }}">
+      <b>{{ qtd_pendentes }}</b>
+      <span>visitas pendentes<em>Produtores sem visita na etapa atual</em></span>
+    </a>
+    <a class="pn-pend {{ '' if qtd_sem_foto else 'ok' }}" href="{{ url_for('index') }}">
+      <b>{{ qtd_sem_foto }}</b>
+      <span>produtores sem foto<em>Abrir a lista para completar</em></span>
+    </a>
+    <a class="pn-pend {{ '' if animais_disponiveis else 'ok' }}" href="{{ url_for('animais') }}">
+      <b>{{ animais_disponiveis }}</b>
+      <span>animais sem produtor<em>Aguardando distribuição</em></span>
+    </a>
+  </div>
+
+  <!-- Resumo -->
+  <h2 class="pn-secao">Resumo</h2>
+  <div class="pn-faixa">
+    <div><b>{{ total_produtores }}</b><span>produtores cadastrados</span></div>
+    <div><b>{{ qtd_completos }}<small>{{ pct_completos }}%</small></b><span>com ficha completa</span></div>
+    <div><b>{{ qtd_ateg }}<small>{{ pct_ateg }}%</small></b><span>assistidos pela ATeG</span></div>
+    <div><b>{{ qtd_em_meta }}<small>{{ pct_em_meta }}%</small></b><span>com {{ limite_animais }} animais ou mais</span></div>
+  </div>
+
+  <!-- Por município -->
+  <h2 class="pn-secao">Por município</h2>
+  <div class="pn-tabela">
+    {% if municipios %}
+    <table>
+      <thead>
+        <tr>
+          <th>Município</th>
+          <th class="num">Produtores</th>
+          <th class="num">Animais</th>
+          <th class="num">Fichas completas</th>
+          <th>Visitados</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in municipios %}
+        <tr>
+          <td>
+            {% if m.nome == 'SEM MUNICÍPIO' %}{{ m.nome }}
+            {% else %}<a class="pn-mun" href="{{ url_for('index', municipio=m.nome) }}">{{ m.nome }}</a>{% endif %}
+          </td>
+          <td class="num">{{ m.produtores }}</td>
+          <td class="num">{{ m.animais }}</td>
+          <td class="num">{{ m.completos }} de {{ m.produtores }}</td>
+          <td>
+            <div class="pn-mini">
+              <div class="trilho"><span style="width:{{ m.pct_visitados }}%"></span></div>
+              <em>{{ m.visitados }} de {{ m.produtores }}</em>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td>Total</td>
+          <td class="num">{{ total_produtores }}</td>
+          <td class="num">{{ total_animais }}</td>
+          <td class="num">{{ qtd_completos }} de {{ total_produtores }}</td>
+          <td>{{ qtd_visitados }} de {{ total_produtores }}</td>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <p class="pn-vazio">Nenhum produtor cadastrado ainda. Use "+ Novo produtor" ou importe uma planilha na tela Produtores.</p>
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}
