@@ -17,7 +17,7 @@
 {% block content %}
 <form method="post" enctype="multipart/form-data">
 <div class="card">
-  <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">&larr; Voltar</a>
+  <a href="{{ url_lista_produtores }}" class="btn btn-secondary btn-sm">&larr; Voltar</a>
 
   <div class="section-title">1. Identificação Geral do Produtor e da Propriedade</div>
   <div class="grid">
@@ -125,7 +125,7 @@
 
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">Salvar</button>
-    <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancelar</a>
+    <a href="{{ url_lista_produtores }}" class="btn btn-secondary">Cancelar</a>
   </div>
 </div>
 </form>

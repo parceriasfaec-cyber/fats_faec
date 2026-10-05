@@ -4,7 +4,7 @@
 <div class="card">
   <div class="toolbar">
     <h2 style="margin:0;">🐄 Animais de {{ (produtor['nome_produtor'] or '-')|upper }}</h2>
-    <a href="{{ url_for('index') }}" class="btn btn-ghost">← Voltar para produtores</a>
+    <a href="{{ url_lista_produtores }}" class="btn btn-ghost">← Voltar para produtores</a>
   </div>
   <p style="color:var(--cinza); margin-top:-6px;">
     Limite de {{ limite }} animais por produtor —

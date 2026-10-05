@@ -22,6 +22,13 @@ from flask import flash, redirect, render_template, request, url_for
 from campos import TIPOS_VISITA
 
 
+# Todo produtor já nasce com uma visita "Cadastro / Ficha inicial" (criada no
+# cadastro, com a data em que foi cadastrado no sistema). Na visita em grupo com
+# esse motivo, em vez de ignorar quem já tem, ATUALIZAMOS a data (e a observação,
+# se informada) da visita de cadastro existente.
+MOTIVO_CADASTRO = "Cadastro / Ficha inicial"
+
+
 def _hoje_iso():
     return datetime.now(ZoneInfo("America/Fortaleza")).strftime("%Y-%m-%d")
 
@@ -35,7 +42,7 @@ def registrar_visitas_grupo(app, get_connection, erro_de_conexao):
             "FROM produtores ORDER BY nome_produtor"
         ).fetchall()]
         motivos_por_produtor = {}
-        for v in conn.execute("SELECT produtor_id, tipo_visita FROM visitas").fetchall():
+        for v in conn.execute("SELECT produtor_id, tipo_visita FROM visitas WHERE ativa = TRUE").fetchall():
             motivos_por_produtor.setdefault(v["produtor_id"], []).append(v["tipo_visita"])
         for p in produtores:
             p["motivos_json"] = json.dumps(motivos_por_produtor.get(p["id"], []), ensure_ascii=False)
@@ -85,17 +92,35 @@ def registrar_visitas_grupo(app, get_connection, erro_de_conexao):
             existentes = conn.execute(
                 "SELECT id, nome_produtor, etapa_atual FROM produtores WHERE id = ANY(?)", (lista,)
             ).fetchall()
-            ja_tem = {
-                r["produtor_id"] for r in conn.execute(
-                    "SELECT produtor_id FROM visitas WHERE tipo_visita = ? AND produtor_id = ANY(?)",
-                    (motivo, lista),
-                ).fetchall()
-            }
+            # produtor_id -> True se o motivo já existe E está ativa; False se existe mas foi desmarcada
+            ja_tem = {}
+            for r in conn.execute(
+                "SELECT produtor_id, ativa FROM visitas WHERE tipo_visita = ? AND produtor_id = ANY(?)",
+                (motivo, lista),
+            ).fetchall():
+                ja_tem[r["produtor_id"]] = ja_tem.get(r["produtor_id"], False) or bool(r["ativa"])
 
-            registrados, ignorados = 0, []
+            registrados, atualizados, reativados, ignorados = 0, 0, 0, []
             for p in existentes:
                 if p["id"] in ja_tem:
-                    ignorados.append(p["nome_produtor"] or f"#{p['id']}")
+                    if motivo == MOTIVO_CADASTRO:
+                        conn.execute(
+                            "UPDATE visitas SET data_visita = ?, "
+                            "observacoes = COALESCE(NULLIF(?, ''), 'Cadastro inicial realizado'), ativa = TRUE "
+                            "WHERE produtor_id = ? AND tipo_visita = ?",
+                            (data_br, observacoes, p["id"], motivo),
+                        )
+                        atualizados += 1
+                    elif not ja_tem[p["id"]]:
+                        # a visita com esse motivo tinha sido desmarcada: reativa com a nova data
+                        conn.execute(
+                            "UPDATE visitas SET data_visita = ?, observacoes = ?, etapa = ?, ativa = TRUE "
+                            "WHERE produtor_id = ? AND tipo_visita = ?",
+                            (data_br, observacoes, p["etapa_atual"] or 1, p["id"], motivo),
+                        )
+                        reativados += 1
+                    else:
+                        ignorados.append(p["nome_produtor"] or f"#{p['id']}")
                     continue
                 conn.execute(
                     "INSERT INTO visitas (produtor_id, data_visita, tipo_visita, observacoes, etapa, ativa) "
@@ -117,8 +142,15 @@ def registrar_visitas_grupo(app, get_connection, erro_de_conexao):
         finally:
             conn.close()
 
-        if registrados:
-            flash(f"Visita \"{motivo}\" registrada em {data_br} para {registrados} produtor(es).", "success")
+        if registrados or atualizados or reativados:
+            partes = []
+            if registrados:
+                partes.append(f"registrada para {registrados} produtor(es)")
+            if reativados:
+                partes.append(f"reativada para {reativados} produtor(es) que tinham a visita desmarcada")
+            if atualizados:
+                partes.append(f"data atualizada para {atualizados} produtor(es) que já tinham o cadastro")
+            flash(f"Visita \"{motivo}\" em {data_br}: " + " e ".join(partes) + ".", "success")
         else:
             flash("Nenhuma visita foi registrada.", "aviso")
         if ignorados:

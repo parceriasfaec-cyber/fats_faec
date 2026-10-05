@@ -12,7 +12,7 @@ import psycopg2
 import requests
 from flask import (
     Flask, render_template, request, redirect, url_for, flash, send_file,
-    send_from_directory, abort
+    send_from_directory, abort, session
 )
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -202,6 +202,17 @@ def foto(nome):
     return send_from_directory(str(UPLOAD_DIR), nome)
 
 
+def _url_lista_produtores() -> str:
+    """Endereço da lista de produtores COM os filtros/página que a pessoa
+    estava usando (guardado na sessão toda vez que ela abre a lista).
+    Usado pra voltar pra mesma tela depois de editar, excluir etc."""
+    url = session.get("lista_produtores") or ""
+    # só aceita endereço interno da própria lista (evita redirecionar pra fora)
+    if url.startswith("/produtores") and not url.startswith("//"):
+        return url
+    return url_for("index")
+
+
 @app.context_processor
 def _injetar_helpers():
     def foto_url(nome):
@@ -216,6 +227,7 @@ def _injetar_helpers():
         return url_for("foto", nome=nome)
     return dict(
         foto_url=foto_url,
+        url_lista_produtores=_url_lista_produtores(),
         qtd_pendentes_offline=(contar_pendentes() + contar_visitas_pendentes() +
                        contar_animais_pendentes()),
     )
@@ -248,22 +260,61 @@ def _parse_coordenada(valor: str):
         return None
 
 
+OBS_CADASTRO_PENDENTE = "Realizar cadastro inicial dos produtores"
+OBS_CADASTRO_FEITO = "Cadastro inicial realizado"
+
+
+def _registrar_cadastro_como_visita(conn, pid):
+    """Ao salvar o cadastro (ficha) do produtor, a visita \"Cadastro / Ficha
+    inicial\" passa a valer como realizada, com a data de hoje. Só acontece uma
+    vez: se a visita ainda estava pendente (observação padrão da importação) ela
+    é atualizada; se não existir, é criada; se já foi realizada, não mexe."""
+    hoje = datetime.now(ZoneInfo("America/Fortaleza")).strftime("%d/%m/%Y")
+    existente = conn.execute(
+        "SELECT id, observacoes FROM visitas WHERE produtor_id = ? AND tipo_visita = ? LIMIT 1",
+        (pid, "Cadastro / Ficha inicial"),
+    ).fetchone()
+    if existente is None:
+        etapa = conn.execute("SELECT etapa_atual FROM produtores WHERE id = ?", (pid,)).fetchone()
+        conn.execute(
+            "INSERT INTO visitas (produtor_id, data_visita, tipo_visita, observacoes, etapa, ativa) "
+            "VALUES (?, ?, ?, ?, ?, TRUE)",
+            (pid, hoje, "Cadastro / Ficha inicial", OBS_CADASTRO_FEITO, (etapa["etapa_atual"] if etapa else 1) or 1),
+        )
+    elif (existente["observacoes"] or "").strip() == OBS_CADASTRO_PENDENTE:
+        conn.execute(
+            "UPDATE visitas SET data_visita = ?, observacoes = ?, ativa = TRUE WHERE id = ?",
+            (hoje, OBS_CADASTRO_FEITO, existente["id"]),
+        )
+
+
 def _ultimas_visitas_ativas(conn, incluir_cadastro=True):
-    """Devolve a visita ativa mais recente de cada produtor."""
+    """Devolve a visita ativa mais recente de cada produtor.
+
+    Com incluir_cadastro=False, só ignora a visita de cadastro que ainda está
+    PENDENTE (a criada na importação, com a observação padrão). O cadastro já
+    realizado (pela ficha, pela visita em grupo ou pelo registro manual) conta
+    como visita."""
     filtro_cadastro = ""
+    params = ()
     if not incluir_cadastro:
-        filtro_cadastro = "AND v.tipo_visita <> 'Cadastro / Ficha inicial'"
+        filtro_cadastro = (
+            "AND NOT (v.tipo_visita = 'Cadastro / Ficha inicial' "
+            "AND COALESCE(TRIM(v.observacoes), '') = ?) "
+        )
+        params = (OBS_CADASTRO_PENDENTE,)
     rows = conn.execute(
         "SELECT DISTINCT ON (v.produtor_id) v.produtor_id, v.data_visita, v.tipo_visita "
         "FROM visitas v "
         "WHERE v.ativa = TRUE " + filtro_cadastro + " "
-        "ORDER BY v.produtor_id, v.criado_em DESC, v.id DESC"
+        "ORDER BY v.produtor_id, v.criado_em DESC, v.id DESC",
+        params,
     ).fetchall()
     return {r["produtor_id"]: r for r in rows}
 
 
 def _ultimas_visitas_da_etapa(conn):
-    """Devolve visitas que concluem a atividade atual, sem o cadastro inicial."""
+    """Devolve as visitas realizadas (o cadastro inicial só conta depois de realizado)."""
     return _ultimas_visitas_ativas(conn, incluir_cadastro=False)
 
 
@@ -674,6 +725,10 @@ def index():
         por_pagina_pedido = 20
     POR_PAGINA = por_pagina_pedido if por_pagina_pedido in (20, 50, 100) else 20
 
+    # Lembra a busca/filtros/página atuais pra voltar pra eles depois de
+    # editar, excluir ou mexer nos animais de um produtor.
+    session["lista_produtores"] = request.full_path.rstrip("?")
+
     try:
         conn = get_connection()
     except Exception as erro:
@@ -914,7 +969,7 @@ def editar(pid):
     if request.method == "POST":
         ok, dados = _salvar(pid)
         if ok:
-            return redirect(url_for("index"))
+            return redirect(_url_lista_produtores())
         return render_template("form.html", produtor=dados, municipios=MUNICIPIOS_CEARA)
     produtor = dict(row)
     produtor["data_nascimento"] = _exibir_data(produtor.get("data_nascimento"))
@@ -1015,7 +1070,7 @@ def _salvar(pid):
                     novo_produtor["id"],
                     datetime.now(ZoneInfo("America/Fortaleza")).strftime("%d/%m/%Y"),
                     "Cadastro / Ficha inicial",
-                    "Realizar cadastro inicial dos produtores",
+                    OBS_CADASTRO_FEITO,
                 ),
             )
             flash("Produtor cadastrado com sucesso.", "success")
@@ -1025,6 +1080,7 @@ def _salvar(pid):
                 f"UPDATE produtores SET {set_clause}, atualizado_em = now() WHERE id = ?",
                 [dados[f] for f in FIELDS] + [pid],
             )
+            _registrar_cadastro_como_visita(conn, pid)
             flash("Cadastro atualizado com sucesso.", "success")
         conn.commit()
         conn.close()
@@ -1121,7 +1177,7 @@ def sincronizar():
                     novo_produtor["id"],
                     datetime.now(ZoneInfo("America/Fortaleza")).strftime("%d/%m/%Y"),
                     "Cadastro / Ficha inicial",
-                    "Realizar cadastro inicial dos produtores",
+                    OBS_CADASTRO_FEITO,
                 ),
             )
             conn.commit()
@@ -1226,7 +1282,7 @@ def excluir(pid):
     conn.commit()
     conn.close()
     flash("Cadastro excluído.", "success")
-    return redirect(url_for("index"))
+    return redirect(_url_lista_produtores())
 
 
 # Quantidade máxima de animais que um produtor pode receber
@@ -1334,7 +1390,7 @@ def desvincular_animal(aid):
     flash("Animal desvinculado do produtor.", "success")
     if pid:
         return redirect(url_for("animais_produtor", pid=pid))
-    return redirect(url_for("index"))
+    return redirect(_url_lista_produtores())
 
 
 @app.route("/animais/novo", methods=["GET", "POST"])

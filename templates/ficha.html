@@ -8,7 +8,7 @@
 {% block content %}
 <div class="card">
   <div class="toolbar">
-    <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm">&larr; Voltar</a>
+    <a href="{{ url_lista_produtores }}" class="btn btn-secondary btn-sm">&larr; Voltar</a>
     <div style="display:flex; gap:8px;">
       <a href="{{ url_for('editar', pid=produtor['id']) }}" class="btn btn-secondary btn-sm">Editar</a>
       <a href="{{ url_for('visitas_produtor', pid=produtor['id']) }}" class="btn btn-secondary btn-sm" title="Histórico de visitas">📋 Visitas</a>
@@ -114,7 +114,7 @@
 
   <div class="form-actions">
     <a href="{{ url_for('editar', pid=produtor['id']) }}" class="btn btn-primary">Editar Cadastro</a>
-    <a href="{{ url_for('index') }}" class="btn btn-secondary">Voltar</a>
+    <a href="{{ url_lista_produtores }}" class="btn btn-secondary">Voltar</a>
   </div>
 </div>
 {% endblock %}

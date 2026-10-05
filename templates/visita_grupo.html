@@ -81,6 +81,12 @@
       </div>
     </div>
 
+    <p id="aviso-cadastro" style="display:none; margin:0 0 10px; color:var(--cinza); font-size:0.88rem;">
+      Todos já têm a ficha de cadastro criada pelo sistema. Ao registrar, a data da visita de cadastro deles será atualizada para a data informada acima.
+    </p>
+    <p id="aviso-bloqueio" style="display:none; margin:0 0 10px; color:var(--terra); font-weight:600;">
+      Todos os produtores desta lista já têm esse motivo. Escolha outro motivo ou outro município.
+    </p>
     <div class="vg-lista" id="lista">
       {% for p in produtores %}
       <label class="vg-item" data-nome="{{ (p.nome_produtor or '')|lower }} {{ (p.nome_propriedade or '')|lower }}"
@@ -131,12 +137,14 @@
   function aplicarMotivo() {
     itens.forEach(function (item) {
       var motivos = JSON.parse(item.dataset.motivos || '[]');
-      var tem = !!motivo.value && motivos.indexOf(motivo.value) !== -1;
+      // "Cadastro / Ficha inicial" não bloqueia: a visita de cadastro existente tem a data atualizada
+      var tem = !!motivo.value && motivo.value !== 'Cadastro / Ficha inicial' && motivos.indexOf(motivo.value) !== -1;
       item.classList.toggle('ja-tem', tem);
       caixa(item).disabled = tem;
       if (tem) { caixa(item).checked = false; }
     });
     atualizarContador();
+    aplicarFiltro();
   }
 
   function aplicarFiltro() {
@@ -149,6 +157,9 @@
       if (ok) { visiveis++; }
     });
     vazio.style.display = visiveis ? 'none' : 'block';
+    var livres = itens.filter(function (i) { return i.style.display !== 'none' && !caixa(i).disabled; }).length;
+    document.getElementById('aviso-cadastro').style.display = (motivo.value === 'Cadastro / Ficha inicial') ? 'block' : 'none';
+    document.getElementById('aviso-bloqueio').style.display = (visiveis && !livres && motivo.value) ? 'block' : 'none';
   }
 
   motivo.addEventListener('change', aplicarMotivo);
