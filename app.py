@@ -1923,6 +1923,10 @@ def debug_supabase():
 from planilha_produtores import registrar_importacao
 registrar_importacao(app, get_connection, _formatar_cpf, _formatar_telefone, _erro_de_conexao)
 
+# ---- Importação de alocações de animais por planilha ----
+from importar_alocacoes import registrar_importacao_alocacoes
+registrar_importacao_alocacoes(app, get_connection, _erro_de_conexao, LIMITE_ANIMAIS_POR_PRODUTOR)
+
 # ---- Painel de entrada (página inicial com os números) ----
 from painel_inicial import registrar_painel
 registrar_painel(app, get_connection, _campos_faltando, _ultimas_visitas_da_etapa,

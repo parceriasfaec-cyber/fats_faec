@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Importar alocações - FATS{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0; color: var(--verde-escuro);">📥 Importar alocações de animais</h2>
+    <a href="{{ url_for('animais') }}" class="btn btn-ghost">← Voltar para animais</a>
+  </div>
+  <p style="color:var(--cinza); margin-top:-6px;">
+    Envie a planilha com <strong>ID Produtor</strong> e <strong>Brinco FAEC</strong>. O sistema só altera
+    <em>quem é o dono do animal</em> — brincos e fotos não são mexidos. Antes de gravar, você vê uma prévia.
+  </p>
+</div>
+
+{% if not previa %}
+<div class="card">
+  <h3 style="margin-top:0;">Como a planilha deve ser</h3>
+  <ul style="line-height:1.7; color:var(--verde-escuro);">
+    <li>Colunas obrigatórias: <code>ID Produtor</code> e <code>Brinco FAEC</code>. Opcionais: <code>CPF</code> (se vier, é conferido com o do produtor) e <code>Produtor</code>.</li>
+    <li>Linhas <strong>sem ID Produtor</strong> são ignoradas (anotações soltas, linhas vazias).</li>
+    <li>Cada produtor pode ficar com no máximo <strong>{{ limite }}</strong> animais.</li>
+    <li>Por padrão, só entram animais <strong>disponíveis</strong>. Quem já está com outro produtor é apontado na prévia.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <form method="post" enctype="multipart/form-data"
+        onsubmit="var b=document.getElementById('btn-ler'); b.disabled=true; b.textContent='Lendo...';">
+    <label style="font-weight:600;">Planilha (.xlsx)</label><br>
+    <input type="file" name="planilha" accept=".xlsx" required style="margin:8px 0;">
+    <div style="margin:8px 0;">
+      <label style="cursor:pointer;">
+        <input type="checkbox" name="permitir_mover" value="1">
+        Permitir mover animais que já estão alocados a outro produtor
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" id="btn-ler">Ler planilha e ver prévia</button>
+    </div>
+  </form>
+</div>
+
+{% else %}
+
+<div class="stats-row">
+  <div class="stat-mini">
+    <div class="rotulo">Serão alocados</div>
+    <div class="valor">{{ previa.ok|length }}</div>
+  </div>
+  <div class="stat-mini">
+    <div class="rotulo">Com problema</div>
+    <div class="valor">{{ previa.problemas|length }}</div>
+  </div>
+  <div class="stat-mini">
+    <div class="rotulo">Já estavam certos</div>
+    <div class="valor">{{ previa.ja_estavam|length }}</div>
+  </div>
+  <div class="stat-mini">
+    <div class="rotulo">Linhas ignoradas (sem ID)</div>
+    <div class="valor">{{ ignoradas }}</div>
+  </div>
+</div>
+
+{% if previa.problemas %}
+<div class="card">
+  <h3 style="margin-top:0;">❗ Não serão importadas ({{ previa.problemas|length }})</h3>
+  <p style="font-size:0.85rem; color:var(--cinza); margin-top:-6px;">
+    Corrija na planilha e envie de novo, ou confirme abaixo só o que está certo.
+  </p>
+  <div class="tabela-scroll">
+    <table class="list">
+      <thead><tr><th>Linha</th><th>Produtor</th><th>Brinco FAEC</th><th>Motivo</th></tr></thead>
+      <tbody>
+        {% for p in previa.problemas %}
+        <tr>
+          <td>{{ p.linha }}</td>
+          <td>{{ p.nome or '—' }}{% if p.pid %} <span style="color:var(--cinza);">(ID {{ p.pid }})</span>{% endif %}</td>
+          <td>{{ p.brinco or '—' }}</td>
+          <td>{{ p.motivo }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if previa.ok %}
+<div class="card">
+  <h3 style="margin-top:0;">✅ Serão alocados ({{ previa.ok|length }})</h3>
+  <div class="tabela-scroll">
+    <table class="list">
+      <thead><tr><th>Produtor</th><th>Brinco FAEC</th><th>Situação</th></tr></thead>
+      <tbody>
+        {% for l in previa.ok %}
+        <tr>
+          <td>{{ l.nome }} <span style="color:var(--cinza);">(ID {{ l.pid }})</span></td>
+          <td>{{ l.brinco }}</td>
+          <td>{% if l.de %}move de {{ produtores[l.de].nome if l.de in produtores else 'ID ' ~ l.de }}{% else %}disponível → alocado{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" action="{{ url_for('confirmar_importar_alocacoes') }}" style="margin-top:16px;"
+        onsubmit="var b=document.getElementById('btn-confirmar'); b.disabled=true; b.textContent='Gravando...';">
+    <input type="hidden" name="pares" value="{{ pares_json }}">
+    <input type="hidden" name="permitir_mover" value="{{ '1' if permitir_mover else '0' }}">
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" id="btn-confirmar">
+        Confirmar e alocar {{ previa.ok|length }} animal(is)
+      </button>
+      <a href="{{ url_for('importar_alocacoes') }}" class="btn btn-ghost">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="card">
+  <p>Nenhum animal para alocar com essa planilha.</p>
+  <a href="{{ url_for('importar_alocacoes') }}" class="btn btn-ghost">← Enviar outra planilha</a>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}
