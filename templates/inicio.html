@@ -11,6 +11,7 @@
   .pn-topo h1 { margin:0; font-size:2rem; color:var(--verde-escuro); line-height:1.1; }
   .pn-topo p { margin:6px 0 0; color:var(--cinza); font-size:0.95rem; }
   .pn-acoes { display:flex; gap:8px; flex-wrap:wrap; }
+  .pn-acoes .btn-primary, .pn-acoes .btn-primary:hover { color:#fff; }
 
   /* ---- destaque: andamento do programa (faixa de couro) ---- */
   .pn-destaque {
@@ -109,7 +110,7 @@
       </div>
     </div>
     <div>
-      <h2>Animais do lote FIV</h2>
+      <h2>Animais do lote</h2>
       <div class="pn-grande">{{ animais_alocados }}<small>de {{ total_animais }}</small></div>
       <p class="pn-legenda">{{ animais_alocados }} já estão com produtores · {{ animais_disponiveis }} aguardando distribuição</p>
       <div class="pn-trilho" role="img" aria-label="{{ animais_alocados }} de {{ total_animais }} animais alocados">
@@ -149,7 +150,7 @@
     <div><b>{{ total_produtores }}</b><span>produtores cadastrados</span></div>
     <div><b>{{ qtd_completos }}<small>{{ pct_completos }}%</small></b><span>com ficha completa</span></div>
     <div><b>{{ qtd_ateg }}<small>{{ pct_ateg }}%</small></b><span>assistidos pela ATeG</span></div>
-    <div><b>{{ qtd_em_meta }}<small>{{ pct_em_meta }}%</small></b><span>com {{ limite_animais }} animais ou mais</span></div>
+    <div><b>{{ qtd_em_meta }}<small>{{ pct_em_meta }}%</small></b><span>com {{ limite_animais }} animais</span></div>
   </div>
 
   <!-- Por município -->
