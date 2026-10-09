@@ -1940,6 +1940,10 @@ registrar_visitas_grupo(app, get_connection, _erro_de_conexao)
 from manejo_reprodutivo import registrar_manejo_reprodutivo
 registrar_manejo_reprodutivo(app, get_connection, _erro_de_conexao)
 
+# ---- Portal do produtor (link exclusivo por produtor; MODO_PRODUTOR=1 isola o site) ----
+from portal_produtor import registrar_portal_produtor
+registrar_portal_produtor(app, get_connection, _erro_de_conexao)
+
 
 if __name__ == "__main__":
     try:

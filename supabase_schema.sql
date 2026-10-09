@@ -236,3 +236,9 @@ CREATE TABLE IF NOT EXISTS "FIV".manejo_reprodutivo (
 
 CREATE INDEX IF NOT EXISTS idx_manejo_animal ON "FIV".manejo_reprodutivo(animal_id);
 CREATE INDEX IF NOT EXISTS idx_manejo_data ON "FIV".manejo_reprodutivo(data_procedimento);
+
+-- Manejo feito pelo proprio produtor: quem registrou ("produtor") e o codigo
+-- secreto do link de cada produtor (/p/<codigo>).
+ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS origem TEXT;
+ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS token_acesso TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_produtores_token ON "FIV".produtores(token_acesso);

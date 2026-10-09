@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2b2015">
+<title>Manejo reprodutivo</title>
+<link rel="manifest" href="{{ url_for('produtor_manifest', token=token) }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='icone-192.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icone-192.png') }}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Manejo">
+<style>
+  :root { --couro:#2b2015; --verde:#4e5c2e; --verde-claro:#e7e6d3; --terra:#9a431b; --fundo:#efe6d2; --tinta:#2a2018; --cinza:#6a5f4c; --borda:#dccdac; --erro:#7c2e21; --erro-bg:#f2ded6; --aviso:#a15d12; --aviso-bg:#f5e5c4; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--fundo); color:var(--tinta); font-family:"IBM Plex Sans",-apple-system,"Segoe UI",Roboto,Arial,sans-serif; line-height:1.45; }
+  .topo { background:var(--couro); color:#fff; padding:14px 16px; border-bottom:3px solid var(--terra); }
+  .topo small { color:#b3a487; display:block; font-size:.78rem; }
+  .topo b { font-size:1.15rem; }
+  main { max-width:560px; margin:0 auto; padding:14px 14px 40px; }
+  .card { background:#fff; border:1px solid var(--borda); border-radius:6px; padding:16px; margin-bottom:14px; }
+  h2 { margin:0 0 12px; font-size:1.05rem; color:var(--couro); }
+  label { display:block; font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--cinza); margin:0 0 5px; }
+  input[type=text], input[type=date] { width:100%; font-size:16px; min-height:50px; padding:10px 12px; border:1px solid var(--borda); border-radius:4px; background:#fff; color:var(--tinta); font-family:inherit; }
+  input:focus { outline:2px solid var(--terra); outline-offset:1px; }
+  #brinco { font-size:1.5rem; font-weight:700; text-transform:uppercase; border:2px solid var(--verde); letter-spacing:.03em; }
+  .campo { margin-bottom:14px; }
+  .info { margin-top:8px; padding:9px 12px; border-radius:4px; font-size:.9rem; background:#f6f0e0; border:1px solid var(--borda); color:var(--cinza); }
+  .info.ok { background:var(--verde-claro); border-color:var(--verde); color:#2b2015; }
+  .info.nao { background:var(--erro-bg); border-color:var(--erro); color:var(--erro); }
+  .tipos { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .tipo { min-height:56px; border:1px solid var(--borda); border-radius:6px; background:#f6f0e0; font-size:1.1rem; font-weight:700; font-family:inherit; color:var(--tinta); cursor:pointer; }
+  .tipo.sel { background:var(--verde); border-color:#2b2015; color:#fff; }
+  .enviar { width:100%; min-height:60px; border:none; border-radius:6px; background:var(--verde); color:#fff; font-size:1.15rem; font-weight:700; font-family:inherit; cursor:pointer; border-bottom:4px solid var(--couro); }
+  .enviar:disabled { opacity:.6; }
+  .vazio { color:var(--cinza); text-align:center; padding:14px 0; }
+  .reg { border:1px solid var(--borda); border-left:5px solid var(--borda); border-radius:6px; padding:11px 13px; margin-bottom:9px; background:#fff; }
+  .reg.erro { border-left-color:var(--erro); } .reg.aviso { border-left-color:var(--aviso); } .reg.ok { border-left-color:var(--verde); }
+  .reg .l1 { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+  .reg .br { font-size:1.25rem; font-weight:700; color:var(--couro); }
+  .reg .sub { font-size:.85rem; color:var(--cinza); }
+  .sit { font-size:.78rem; font-weight:700; padding:3px 10px; border-radius:12px; background:#ece7d9; color:var(--cinza); border:1px solid var(--borda); white-space:nowrap; }
+  .sit.ok { background:var(--verde-claro); color:#2b2015; border-color:var(--verde); }
+  .sit.erro { background:var(--erro-bg); color:var(--erro); border-color:var(--erro); }
+  .sit.aviso { background:var(--aviso-bg); color:var(--aviso); border-color:var(--aviso); }
+  .reg form { margin-top:6px; }
+  .excluir { background:none; border:none; color:var(--erro); font-size:.85rem; padding:6px 0; cursor:pointer; font-family:inherit; text-decoration:underline; }
+  .passo { font-size:.85rem; color:var(--cinza); margin:0 0 12px; }
+</style>
+</head>
+<body>
+<div class="topo">
+  <small>Manejo reprodutivo (IATF / TETF)</small>
+  <b>{{ (produtor.nome_produtor or '')|title }}</b>
+  {% if produtor.nome_propriedade %}<small>{{ produtor.nome_propriedade|title }}</small>{% endif %}
+</div>
+
+<main>
+  <div id="fila-aviso" hidden style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 14px;border-radius:4px;margin-bottom:14px;background:var(--aviso-bg);color:var(--aviso);border:1px solid var(--aviso);font-size:.9rem;">
+    <span data-fila-texto></span>
+    <button type="button" id="fila-enviar" style="min-height:40px;padding:0 14px;border:none;border-radius:4px;background:var(--verde);color:#fff;font-weight:700;font-family:inherit;">Enviar agora</button>
+  </div>
+  <style>#fila-aviso[hidden]{display:none !important;}</style>
+
+  <form class="card" id="form" autocomplete="off">
+    <h2>Registrar um animal</h2>
+    <p class="passo">Digite o brinco, escolha o tipo e toque em Registrar.</p>
+
+    <div class="campo">
+      <label for="brinco">Brinco do animal</label>
+      <input type="text" id="brinco" name="brinco" inputmode="text" autocapitalize="characters" placeholder="Ex.: 0001">
+      <div class="info" id="info">Digite o brinco do animal.</div>
+    </div>
+
+    <div class="campo">
+      <label>O que foi feito</label>
+      <div class="tipos" id="tipos">
+        <button type="button" class="tipo" data-valor="IATF">IATF</button>
+        <button type="button" class="tipo" data-valor="TETF">TETF</button>
+      </div>
+      <input type="hidden" name="tipo_manejo" id="tipo_manejo">
+    </div>
+
+    <div class="campo">
+      <label for="data_procedimento">Data</label>
+      <input type="date" id="data_procedimento" name="data_procedimento">
+    </div>
+
+    <div class="campo">
+      <label for="touro_nome">Touro / sêmen usado (se souber)</label>
+      <input type="text" id="touro_nome" name="touro_nome" style="text-transform:uppercase;">
+    </div>
+
+    <button type="submit" class="enviar" id="enviar">Registrar</button>
+  </form>
+
+  <div class="card">
+    <h2>Meus registros</h2>
+    {% if registros %}
+      {% for r in registros %}
+      <div class="reg {{ r.sit_classe }}">
+        <div class="l1">
+          <div>
+            <div class="br">{{ r.brinco }}</div>
+            <div class="sub"><b>{{ r.tipo_manejo }}</b> em {{ r.data_procedimento.strftime('%d/%m/%Y') if r.data_procedimento else '-' }}</div>
+          </div>
+          <span class="sit {{ r.sit_classe }}">{{ r.sit_texto }}</span>
+        </div>
+        {% if r.prev.parto %}<div class="sub">Parto previsto: {{ r.prev.parto.strftime('%d/%m/%Y') }}</div>{% endif %}
+        {% if r.pode_excluir %}
+        <form method="post" action="{{ url_for('produtor_excluir', token=token, rid=r.id) }}"
+              onsubmit="return confirm('Apagar o registro do brinco {{ (r.brinco or '')|e }}?');">
+          <button type="submit" class="excluir">Registrei errado — apagar</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="vazio">Você ainda não tem registros.</p>
+    {% endif %}
+  </div>
+</main>
+
+<script id="brincos-json" type="application/json">{{ brincos|tojson }}</script>
+<script>window.MANEJO_API = {{ url_for('produtor_api_salvar', token=token)|tojson }};</script>
+<script src="{{ url_for('static', filename='manejo_offline.js') }}"></script>
+<script>
+(function () {
+  var brincos = JSON.parse(document.getElementById('brincos-json').textContent || '[]');
+  var campo = document.getElementById('brinco'), info = document.getElementById('info');
+  var tipo = document.getElementById('tipo_manejo'), data = document.getElementById('data_procedimento');
+  var form = document.getElementById('form'), botao = document.getElementById('enviar');
+
+  function hojeISO() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  data.value = hojeISO();
+
+  function chaves(v) {
+    var b = (v || '').toUpperCase().replace(/\s+/g, '');
+    if (!b) return [];
+    return /^\d+$/.test(b) ? [b, String(parseInt(b, 10))] : [b];
+  }
+  function achar(v) {
+    var alvo = chaves(v); if (!alvo.length) return null;
+    for (var i = 0; i < brincos.length; i++) {
+      var ks = chaves(brincos[i].faec).concat(chaves(brincos[i].fazenda));
+      for (var j = 0; j < alvo.length; j++) if (ks.indexOf(alvo[j]) !== -1) return brincos[i];
+    }
+    return null;
+  }
+  function mostrar() {
+    var v = campo.value.trim();
+    if (!v) { info.className = 'info'; info.textContent = 'Digite o brinco do animal.'; return null; }
+    var a = achar(v);
+    if (a) { info.className = 'info ok'; info.textContent = '✔ Animal encontrado' + (a.fazenda && a.faec ? ' (' + a.faec + ' · ' + a.fazenda + ')' : ''); }
+    else { info.className = 'info nao'; info.textContent = 'Esse brinco não está entre os seus animais. Confira o número.'; }
+    return a;
+  }
+  campo.addEventListener('input', function () { campo.value = campo.value.toUpperCase(); mostrar(); });
+  campo.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+
+  document.getElementById('tipos').addEventListener('click', function (e) {
+    var b = e.target.closest('.tipo'); if (!b) return;
+    document.querySelectorAll('.tipo').forEach(function (x) { x.classList.remove('sel'); });
+    b.classList.add('sel'); tipo.value = b.dataset.valor;
+  });
+
+  // mensagem guardada antes de recarregar a lista
+  try {
+    var msg = sessionStorage.getItem('manejo-msg');
+    if (msg) { sessionStorage.removeItem('manejo-msg'); ManejoFila.aviso(msg, 'ok'); }
+  } catch (e) {}
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var brinco = campo.value.trim().toUpperCase();
+    if (!brinco) { ManejoFila.aviso('Digite o brinco do animal.', 'erro'); campo.focus(); return; }
+    if (!achar(brinco)) { ManejoFila.aviso('Esse brinco não está entre os seus animais. Confira o número.', 'erro'); campo.focus(); return; }
+    if (!tipo.value) { ManejoFila.aviso('Escolha IATF ou TETF.', 'erro'); return; }
+    if (!data.value) { ManejoFila.aviso('Informe a data.', 'erro'); return; }
+    var registro = { brinco: brinco, tipo_manejo: tipo.value, data_procedimento: data.value, touro_nome: document.getElementById('touro_nome').value };
+
+    botao.disabled = true; botao.textContent = 'Salvando...';
+    ManejoFila.salvar(registro).then(function (r) {
+      if (r.status === 'nao_encontrado') { ManejoFila.aviso(r.mensagem || 'Brinco não encontrado entre os seus animais.', 'erro'); return; }
+      if (r.status === 'invalido') { ManejoFila.aviso(r.mensagem || 'Registro incompleto.', 'erro'); return; }
+      if (r.status === 'duplicado') { ManejoFila.aviso('O brinco ' + brinco + ' já tem ' + registro.tipo_manejo + ' registrado nessa data.', 'aviso'); }
+      else if (r.destino === 'celular') { ManejoFila.aviso('📴 Sem sinal: o brinco ' + brinco + ' ficou guardado no celular e será enviado sozinho quando a internet voltar.', 'aviso'); }
+      else {
+        try { sessionStorage.setItem('manejo-msg', '✔ Brinco ' + brinco + ' registrado!'); } catch (e) {}
+        location.reload(); return;      // recarrega para mostrar o registro na lista
+      }
+      campo.value = ''; mostrar(); campo.focus(); ManejoFila.atualizar();
+    }).catch(function () {
+      ManejoFila.aviso('Não foi possível guardar o registro. Tente de novo.', 'erro');
+    }).then(function () { botao.disabled = false; botao.textContent = 'Registrar'; });
+  });
+})();
+</script>
+</body>
+</html>

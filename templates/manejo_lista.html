@@ -47,6 +47,7 @@
 </div>
 
 <div class="card">
+  <p style="margin:0 0 12px;"><a href="{{ url_for('manejo_links') }}" class="btn btn-outline-terra btn-sm">🔗 Links dos produtores</a></p>
   <form method="get" class="filtros-row">
     <input type="search" name="q" value="{{ busca }}" placeholder="Brinco, produtor, touro ou doadora" style="flex:1 1 220px;">
     <select name="tipo">
@@ -86,6 +87,7 @@
           <td class="col-principal nowrap">
             <a class="link-produtor" href="{{ url_for('manejo_editar', rid=r.id) }}">{{ r.brinco or '-' }}</a>
             {% if r.touro_nome %}<span class="ml-sub">{{ r.touro_nome }}</span>{% endif %}
+            {% if r.origem == 'produtor' %}<span class="ml-sub" style="color:var(--terra);font-weight:600;">via produtor</span>{% endif %}
           </td>
           <td>{{ r.nome_produtor or '-' }}{% if r.municipio %}<span class="ml-sub">{{ r.municipio|upper }}</span>{% endif %}</td>
           <td class="nowrap"><span class="ml-tipo">{{ r.tipo_manejo }}</span><span class="ml-sub">{{ r.data_procedimento.strftime('%d/%m/%Y') if r.data_procedimento else '-' }}</span></td>
@@ -115,7 +117,7 @@
         </div>
         <span class="ml-sit {{ r.sit_classe }}">{{ r.sit_texto }}</span>
       </div>
-      <div class="prod" style="margin-top:6px;"><span class="ml-tipo">{{ r.tipo_manejo }}</span> em {{ r.data_procedimento.strftime('%d/%m/%Y') if r.data_procedimento else '-' }}{% if r.touro_nome %} · {{ r.touro_nome }}{% endif %}</div>
+      <div class="prod" style="margin-top:6px;"><span class="ml-tipo">{{ r.tipo_manejo }}</span> em {{ r.data_procedimento.strftime('%d/%m/%Y') if r.data_procedimento else '-' }}{% if r.touro_nome %} · {{ r.touro_nome }}{% endif %}{% if r.origem == 'produtor' %} · <b style="color:var(--terra)">via produtor</b>{% endif %}</div>
       <div class="datas">
         <div><small>DG1</small><b>{{ r.prev.dg1.strftime('%d/%m') if r.prev.dg1 else '-' }}</b>{% if r.dg1_resultado %}<i>{{ r.dg1_resultado }}</i>{% endif %}</div>
         <div><small>DG2</small><b>{{ r.prev.dg2.strftime('%d/%m') if r.prev.dg2 else '-' }}</b>{% if r.dg2_resultado %}<i>{{ r.dg2_resultado }}</i>{% endif %}</div>

@@ -4,7 +4,9 @@
    - lembra touro/sêmen/doadora de um animal para o próximo (localStorage). */
 (function () {
   'use strict';
-  var BANCO = 'fats-manejo', LOJA = 'fila', URL_API = '/manejo/api/salvar';
+  var BANCO = 'fats-manejo', LOJA = 'fila', API_PADRAO = '/manejo/api/salvar';
+  // cada tela diz para onde enviar (o portal do produtor usa o link dele)
+  function apiAtual() { return window.MANEJO_API || API_PADRAO; }
   var LEMBRAR = 'fats-manejo-lembrar', VALIDADE_MS = 12 * 60 * 60 * 1000;
   var enviando = false;
 
@@ -27,16 +29,19 @@
       });
     });
   }
-  function adicionar(registro) { return transacao('readwrite', function (s) { return s.add({ dados: registro, em: Date.now() }); }); }
+  function adicionar(registro) { return transacao('readwrite', function (s) { return s.add({ dados: registro, em: Date.now(), api: apiAtual() }); }); }
   function listar() { return transacao('readonly', function (s) { return s.getAll(); }).then(function (l) { return l || []; }); }
   function remover(ids) { return transacao('readwrite', function (s) { ids.forEach(function (i) { s.delete(i); }); }); }
-  function contar() { return listar().then(function (l) { return l.length; }).catch(function () { return 0; }); }
+  function contar() {
+    var api = apiAtual();
+    return listar().then(function (l) { return l.filter(function (i) { return (i.api || API_PADRAO) === api; }).length; }).catch(function () { return 0; });
+  }
 
   // ---------- envio ----------
-  function enviar(registros, limiteMs) {
+  function enviar(registros, limiteMs, url) {
     var ctl = window.AbortController ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctl) ctl.abort(); }, limiteMs || 15000);
-    return fetch(URL_API, {
+    return fetch(url || apiAtual(), {
       method: 'POST', credentials: 'same-origin', signal: ctl ? ctl.signal : undefined,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ registros: registros })
@@ -59,19 +64,23 @@
   function sincronizar() {
     if (enviando) return Promise.resolve({ enviados: 0 });
     enviando = true;
-    return listar().then(function (itens) {
+    var api = apiAtual();
+    return listar().then(function (todos) {
+      var itens = todos.filter(function (i) { return (i.api || API_PADRAO) === api; });
       if (!itens.length) return { enviados: 0, restantes: 0 };
       var lote = itens.slice(0, 100);
-      return enviar(lote.map(function (i) { return i.dados; }), 30000).then(function (res) {
-        var apagar = [], criados = 0, repetidos = 0, descartados = 0;
+      return enviar(lote.map(function (i) { return i.dados; }), 30000, api).then(function (res) {
+        var apagar = [], criados = 0, repetidos = 0, descartados = 0, naoEncontrados = [];
         lote.forEach(function (it, k) {
           var st = res[k] && res[k].status;
           if (st === 'criado') { criados++; apagar.push(it.id); }
           else if (st === 'duplicado') { repetidos++; apagar.push(it.id); }
           else if (st === 'invalido') { descartados++; apagar.push(it.id); }
+          else if (st === 'nao_encontrado') { naoEncontrados.push(res[k].brinco || ''); apagar.push(it.id); }
         });
         return remover(apagar).then(function () {
-          return { enviados: criados, repetidos: repetidos, descartados: descartados, restantes: itens.length - apagar.length };
+          return { enviados: criados, repetidos: repetidos, descartados: descartados,
+                   naoEncontrados: naoEncontrados, restantes: itens.length - apagar.length };
         });
       });
     }).then(function (r) { enviando = false; atualizarAviso(); return r; },
@@ -113,6 +122,7 @@
         aviso('Nada pendente para enviar.', 'ok');
       }
       if (r.descartados) aviso(r.descartados + ' registro(s) incompleto(s) foram descartados.', 'aviso');
+      if (r.naoEncontrados && r.naoEncontrados.length) aviso('Brinco não encontrado entre os seus animais (não registrado): ' + r.naoEncontrados.join(', '), 'erro');
       return r;
     }).catch(function () {
       if (mostrarSeVazio) aviso('Sem sinal ainda. Os registros continuam guardados no celular.', 'aviso');

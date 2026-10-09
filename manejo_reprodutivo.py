@@ -23,7 +23,9 @@ import json
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from flask import flash, redirect, render_template, request, session, url_for
+from pathlib import Path
+
+from flask import flash, jsonify, redirect, render_template, request, url_for
 
 
 # ------------------------------------------------------------------
@@ -77,7 +79,7 @@ CAMPOS = (
     + ["embriao_data_opu"]
 )
 
-# O que é lembrado de um animal para o próximo (o técnico aplica o mesmo
+# O que o celular lembra de um animal para o próximo (o técnico aplica o mesmo
 # sêmen/doadora em vários animais seguidos). Brinco, DG, CL, ECC e o código
 # do embrião começam em branco a cada animal.
 CARREGAR_PARA_PROXIMO = [
@@ -202,6 +204,38 @@ def achar_animal(brinco: str, animais: list):
     return None
 
 
+def gravar_registro(conn, dados, animais, origem=None):
+    """Grava um registro (sem commit). Devolve (status, id, animal) onde
+    status é "criado" ou "duplicado" (mesma matriz + tipo + data: não grava de
+    novo, o que torna seguro reenviar a mesma fila duas vezes).
+    `origem` marca quem registrou ("produtor" quando veio do link do produtor)."""
+    animal = achar_animal(dados["brinco"], animais)
+    animal_id = animal["id"] if animal else None
+    if animal and animal.get("brinco_faec"):
+        dados["brinco"] = animal["brinco_faec"].strip().upper()   # "1" vira "0001"
+    if animal_id is not None:
+        existente = conn.execute(
+            "SELECT id FROM manejo_reprodutivo WHERE animal_id = ? "
+            "AND tipo_manejo = ? AND data_procedimento = ? LIMIT 1",
+            (animal_id, dados["tipo_manejo"], dados["data_procedimento"]),
+        ).fetchone()
+    else:
+        existente = conn.execute(
+            "SELECT id FROM manejo_reprodutivo WHERE animal_id IS NULL AND brinco = ? "
+            "AND tipo_manejo = ? AND data_procedimento = ? LIMIT 1",
+            (dados["brinco"], dados["tipo_manejo"], dados["data_procedimento"]),
+        ).fetchone()
+    if existente:
+        return "duplicado", existente["id"], animal
+    colunas = ["animal_id", "origem"] + CAMPOS
+    conn.execute(
+        f"INSERT INTO manejo_reprodutivo ({', '.join(colunas)}) "
+        f"VALUES ({', '.join(['?'] * len(colunas))})",
+        [animal_id, origem] + [dados[c] for c in CAMPOS],
+    )
+    return "criado", None, animal
+
+
 # ------------------------------------------------------------------
 # Rotas
 # ------------------------------------------------------------------
@@ -253,6 +287,7 @@ def registrar_manejo_reprodutivo(app, get_connection, erro_de_conexao):
             opcoes=OPCOES, racas_doadora=RACAS_DOADORA, racas_touro=RACAS_TOURO,
             dias_dg1=DIAS_DG1, dias_dg2=DIAS_DG2, dias_parto=DIAS_PARTO,
             registrados_hoje=_contar_hoje(conn),
+            campos_carregar=CARREGAR_PARA_PROXIMO,
         )
 
     def _valores_para_form(dados: dict) -> dict:
@@ -341,7 +376,6 @@ def registrar_manejo_reprodutivo(app, get_connection, erro_de_conexao):
         try:
             if request.method == "GET":
                 reg = {c: None for c in CAMPOS}
-                reg.update(session.get("manejo_carregar") or {})
                 reg["data_procedimento"] = reg.get("data_procedimento") or hoje().isoformat()
                 # ?brinco=XXX (vindo de outra tela) já preenche o brinco
                 if request.args.get("brinco"):
@@ -354,36 +388,14 @@ def registrar_manejo_reprodutivo(app, get_connection, erro_de_conexao):
                 flash(erro_form, "error")
                 return _tela_formulario(conn, _valores_para_form(dados))
 
-            animal = _resolver_animal(conn, dados["brinco"])
-            animal_id = animal["id"] if animal else None
-
-            # Evita gravar duas vezes o mesmo procedimento (toque duplo no botão)
-            if animal_id is not None:
-                duplicado = conn.execute(
-                    "SELECT id FROM manejo_reprodutivo WHERE animal_id = ? "
-                    "AND tipo_manejo = ? AND data_procedimento = ? LIMIT 1",
-                    (animal_id, dados["tipo_manejo"], dados["data_procedimento"]),
-                ).fetchone()
-            else:
-                duplicado = conn.execute(
-                    "SELECT id FROM manejo_reprodutivo WHERE animal_id IS NULL AND brinco = ? "
-                    "AND tipo_manejo = ? AND data_procedimento = ? LIMIT 1",
-                    (dados["brinco"], dados["tipo_manejo"], dados["data_procedimento"]),
-                ).fetchone()
-            if duplicado:
+            status, existente_id, animal = gravar_registro(conn, dados, _animais(conn))
+            if status == "duplicado":
                 flash(
                     f"A matriz {dados['brinco']} já tem {dados['tipo_manejo']} registrado nessa data. "
                     "Nada foi gravado de novo — para ajustar, edite o registro existente.",
                     "aviso",
                 )
-                return redirect(url_for("manejo_editar", rid=duplicado["id"]))
-
-            colunas = ["animal_id"] + CAMPOS
-            conn.execute(
-                f"INSERT INTO manejo_reprodutivo ({', '.join(colunas)}) "
-                f"VALUES ({', '.join(['?'] * len(colunas))})",
-                [animal_id] + [dados[c] for c in CAMPOS],
-            )
+                return redirect(url_for("manejo_editar", rid=existente_id))
             conn.commit()
         except Exception as erro:
             if erro_de_conexao(erro):
@@ -395,9 +407,6 @@ def registrar_manejo_reprodutivo(app, get_connection, erro_de_conexao):
         finally:
             conn.close()
 
-        # Guarda o que se repete de um animal para o outro (tipo, data, touro...)
-        carregar = _valores_para_form(dados)
-        session["manejo_carregar"] = {c: carregar[c] for c in CARREGAR_PARA_PROXIMO if carregar.get(c)}
         aviso = "" if animal else " (brinco não encontrado no cadastro de animais)"
         flash(f"Matriz {dados['brinco']} registrada{aviso}. Próximo animal!", "success")
         return redirect(url_for("manejo_novo"))
@@ -459,6 +468,59 @@ def registrar_manejo_reprodutivo(app, get_connection, erro_de_conexao):
             conn.close()
         flash("Registro excluído.", "success")
         return redirect(url_for("manejo_lista"))
+
+    # ---------------- API usada pelo celular (envio e fila offline) ----------------
+    def manejo_api_salvar():
+        """Recebe {"registros": [ {campos do formulário}, ... ]} e grava todos
+        numa única transação. Responde com o resultado de cada um, na mesma
+        ordem: "criado", "duplicado" (já existia) ou "invalido" (faltou
+        brinco/tipo/data - nunca vai passar, o celular descarta). Qualquer falha
+        de banco desfaz tudo e devolve erro: o celular mantém a fila e tenta
+        de novo (reenviar é seguro por causa do "duplicado")."""
+        corpo = request.get_json(silent=True) or {}
+        itens = corpo.get("registros")
+        if not isinstance(itens, list) or not itens or len(itens) > 200:
+            return jsonify({"ok": False, "erro": "Envie de 1 a 200 registros."}), 400
+        try:
+            conn = get_connection()
+        except Exception as erro:
+            if not erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
+                raise
+            return jsonify({"ok": False, "erro": "Sem conexão com o banco."}), 503
+        try:
+            animais = _animais(conn)
+            resultados = []
+            for item in itens:
+                dados = ler_formulario(item if isinstance(item, dict) else {})
+                erro_item = validar(dados)
+                if erro_item:
+                    resultados.append({"status": "invalido", "mensagem": erro_item})
+                    continue
+                status, existente_id, animal = gravar_registro(conn, dados, animais)
+                resultados.append({
+                    "status": status, "brinco": dados["brinco"],
+                    "id": existente_id, "animal_encontrado": bool(animal),
+                })
+            conn.commit()
+        except Exception as erro:
+            app.logger.exception("Falha ao gravar manejo reprodutivo (API)")
+            codigo = 503 if erro_de_conexao(erro) else 500
+            return jsonify({"ok": False, "erro": "Não foi possível gravar agora."}), codigo
+        finally:
+            conn.close()
+        return jsonify({"ok": True, "resultados": resultados})
+
+    def service_worker():
+        """Service worker na raiz do site: guarda a tela de registro para ela
+        abrir mesmo sem sinal. O código fica em static/sw.js."""
+        caminho = Path(app.static_folder) / "sw.js"
+        resposta = app.response_class(caminho.read_text(encoding="utf-8"), mimetype="application/javascript")
+        resposta.headers["Cache-Control"] = "no-cache"
+        resposta.headers["Service-Worker-Allowed"] = "/"
+        return resposta
+
+    app.add_url_rule("/manejo/api/salvar", "manejo_api_salvar", manejo_api_salvar, methods=["POST"])
+    app.add_url_rule("/sw.js", "manejo_service_worker", service_worker, methods=["GET"])
 
     def manifest_pwa():
         """Permite "instalar" o sistema na tela inicial do celular (abre
