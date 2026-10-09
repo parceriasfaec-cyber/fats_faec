@@ -307,6 +307,14 @@ def generate_pdf(row, animais=None) -> BytesIO:
             )
             story.append(Paragraph(info, value_style))
             story.append(Spacer(1, 3))
+            ficha_animal = (
+                f"<b>Grau de sangue:</b> {_v(animal, 'grau_sangue')} &nbsp;&nbsp; "
+                f"<b>Pai:</b> {_v(animal, 'pai')} &nbsp;&nbsp; "
+                f"<b>Brinco da mãe:</b> {_v(animal, 'brinco_mae')} &nbsp;&nbsp; "
+                f"<b>Nascimento:</b> {_v(animal, 'data_nascimento')}"
+            )
+            story.append(Paragraph(ficha_animal, value_style))
+            story.append(Spacer(1, 3))
 
             celulas_fotos = []
             for campo in ("foto_1", "foto_2", "foto_3"):

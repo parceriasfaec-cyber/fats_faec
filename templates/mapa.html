@@ -1,30 +1,18 @@
 {% extends "base.html" %}
 {% block title %}Mapa - FATS{% endblock %}
+{% import "_pg.html" as pg %}
 {% block content %}
 
-<div class="toolbar">
-  <h2 style="margin:0; color: var(--verde-escuro);">Mapa das Propriedades</h2>
-  <a href="{{ url_for('index') }}" class="btn btn-secondary">← Voltar para a lista</a>
-</div>
+{% call pg.hero('Mapa das Propriedades', 'Localização dos produtores e rotas de entrega', 'visitas', []) %}
+<div class="an-chip"><span class="an-chip-num" id="card-total-valor">{{ total }}</span><span class="an-chip-lbl" id="card-total-label">Produtores</span></div>
+<div class="an-chip"><span class="an-chip-num" id="card-no-mapa-valor">{{ qtd_no_mapa }}</span><span class="an-chip-lbl">No mapa</span></div>
+<div class="an-chip terra"><span class="an-chip-num" id="card-sem-coord-valor">{{ sem_coordenadas }}</span><span class="an-chip-lbl">Sem coordenadas</span></div>
+{% endcall %}
+{{ pg.acoes([(url_for('index'), '←', 'Voltar para a lista', 'Abre a lista de produtores')]) }}
 
 {% if offline %}
 <div class="flash aviso">Modo offline: dados do último acesso carregados. As visitas serão sincronizadas quando a internet voltar.</div>
 {% endif %}
-
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
-  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div id="card-total-label" style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Total de Produtores</div>
-    <div id="card-total-valor" style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde-escuro);">{{ total }}</div>
-  </div>
-  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">No Mapa (com coordenadas)</div>
-    <div id="card-no-mapa-valor" style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde);">{{ qtd_no_mapa }}</div>
-  </div>
-  <div class="card card-stat acento-erro" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Sem Coordenadas</div>
-    <div id="card-sem-coord-valor" style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--erro);">{{ sem_coordenadas }}</div>
-  </div>
-</div>
 
 <div class="card" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
   <div style="min-width:220px;">

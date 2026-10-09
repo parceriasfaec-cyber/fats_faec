@@ -23,6 +23,14 @@
             font-family:var(--fonte-corpo); font-size:0.78rem; font-weight:700; letter-spacing:.02em; color:var(--cinza); cursor:pointer; text-transform:uppercase; }
   .mr-aba.ativa { color:var(--terra); border-bottom-color:var(--terra); background:rgba(154,67,27,.06); }
   .mr-painel[hidden] { display:none; }
+  .mr-cab { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; }
+  .mr-cab .mr-rotulo { margin-bottom:0; }
+  .mr-selo { font-size:0.72rem; font-weight:600; padding:2px 9px; border-radius:4px; border:1px solid var(--borda); background:#ece7d9; color:var(--cinza); white-space:nowrap; }
+  .mr-selo.verde { background:var(--verde-claro); color:var(--verde-escuro); border-color:var(--verde); }
+  .mr-selo.azul { background:#e3edf5; color:#2c5d8a; border-color:#2c5d8a; }
+  .mr-selo.ciano { background:#e0f0f5; color:#2c6e8a; border-color:#2c6e8a; }
+  .mr-parto { margin-top:12px; display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--verde-claro); border:1px solid var(--verde); border-radius:6px; padding:11px 14px; color:var(--verde-escuro); font-weight:600; font-size:0.92rem; }
+  .mr-parto strong { font-size:1.15rem; }
 
   .mr .card { padding:16px 18px; margin-bottom:14px; }
   .mr .card.dg { border-left:4px solid #2c6e8a; }
@@ -46,6 +54,7 @@
   .mr-opts { display:grid; gap:6px; }
   .mr-opts.c2 { grid-template-columns:repeat(2,1fr); }
   .mr-opts.c3 { grid-template-columns:repeat(3,1fr); }
+  .mr-opts.c4 { grid-template-columns:repeat(4,1fr); }
   .mr-opts.c6 { grid-template-columns:repeat(6,1fr); }
   .mr-opt { min-height:50px; padding:11px 6px; border:1px solid var(--borda); border-radius:4px; background:#f6f0e0; color:var(--tinta);
             font-family:var(--fonte-corpo); font-size:0.86rem; font-weight:700; cursor:pointer; line-height:1.2; -webkit-tap-highlight-color:transparent; }
@@ -102,16 +111,16 @@
       <button type="button" class="mr-aba ativa" data-aba="aba-receptora">Receptora / Ação</button>
       <button type="button" class="mr-aba" data-aba="aba-doadora">Doadora (TETF)</button>
       <button type="button" class="mr-aba" data-aba="aba-touro">Touro / Sêmen</button>
-      {% if modo == 'produtor' and not registro_id %}<button type="button" class="mr-aba" data-aba="aba-meus">Meus registros</button>{% endif %}
+      {% if modo == 'produtor' and not registro_id %}<button type="button" class="mr-aba" data-aba="aba-meus">{{ rotulo_meus }}</button>{% endif %}
     </div>
 
     <!-- ============ ABA 1: RECEPTORA ============ -->
     <section class="mr-painel" id="aba-receptora">
 
       <div class="card">
-        <span class="mr-rotulo">1. Identificação da matriz</span>
+        <span class="mr-rotulo">1. Identificação da Matriz (Receptora / Vaca)</span>
         <input type="text" id="brinco" name="brinco" value="{{ reg.brinco or '' }}" list="lista-brincos"
-               placeholder="Brinco FAEC ou da fazenda" autocapitalize="characters" inputmode="text">
+               placeholder="Digite o número do brinco ou RGT..." autocapitalize="characters" inputmode="text">
         <datalist id="lista-brincos">
           {% for a in animais %}
             {% if a.faec %}<option value="{{ a.faec }}">{{ a.fazenda }}</option>{% endif %}
@@ -137,10 +146,10 @@
       </div>
 
       <div class="card">
-        <span class="mr-rotulo">2. Procedimento e previsões</span>
+        <span class="mr-rotulo">2. Data do Procedimento &amp; Previsões</span>
         <div class="duas linha">
           <div>
-            <span class="mr-sub">Data do procedimento</span>
+            <span class="mr-sub">Data IATF / TETF</span>
             <input type="date" id="data_procedimento" name="data_procedimento" value="{{ reg.data_procedimento or '' }}">
           </div>
           <div>
@@ -148,43 +157,42 @@
             {{ grupo('tipo_manejo', reg.tipo_manejo, [('IATF','IATF','verde'),('TETF','TETF','verde')], 2, True) }}
           </div>
         </div>
-        <div class="mr-previsao">
-          <div><small>DG1 (+{{ dias_dg1 }}d)</small><strong id="prev-dg1">—</strong></div>
-          <div><small>DG2 (+{{ dias_dg2 }}d)</small><strong id="prev-dg2">—</strong></div>
-          <div><small>Parto previsto</small><strong id="prev-parto">—</strong></div>
+        <div class="mr-parto">
+          <span>🍼 Previsão de Parto ({{ dias_parto.get('TETF', 284) }}d):</span>
+          <strong id="prev-parto">—</strong>
         </div>
       </div>
 
       <div class="card dg">
-        <span class="mr-rotulo" style="color:#2c6e8a;">3. Diagnóstico de gestação (DG)</span>
+        <div class="mr-cab"><span class="mr-rotulo" style="color:#2c6e8a;">3. Diagnóstico de Gestação (DG)</span><span class="mr-selo ciano">USG Doppler</span></div>
 
         <div class="mr-dg">
-          <div class="mr-dg-topo">DG 1 — 30 dias <span>previsto: <b id="rot-dg1">—</b></span></div>
+          <div class="mr-dg-topo">DG 1 (30 dias) <span>Previsto: <b id="rot-dg1">—</b></span></div>
           {{ grupo('dg1_resultado', reg.dg1_resultado, [('PRENHE','PRENHE','verde'),('VAZIA','VAZIA','vermelho'),('REAVALIAR','REAVALIAR','ambar')]) }}
-          <input type="text" name="dg1_obs" value="{{ reg.dg1_obs or '' }}" placeholder="Obs. DG 30d (ex.: CL funcional direito, vesícula 14 mm)">
+          <input type="text" name="dg1_obs" value="{{ reg.dg1_obs or '' }}" placeholder="Obs. DG 30d (ex: CL funcional direito, vesícula 14mm)...">
         </div>
 
         <p id="aviso-dg2" hidden style="margin:0;font-size:0.88rem;color:var(--cinza);">Matriz vazia no DG1 — não precisa de DG2.</p>
         <div class="mr-dg" id="bloco-dg2">
-          <div class="mr-dg-topo">DG 2 — 60 dias (sexagem) <span>previsto: <b id="rot-dg2">—</b></span></div>
+          <div class="mr-dg-topo">DG 2 (60 dias - sexagem) <span>Previsto: <b id="rot-dg2">—</b></span></div>
           {{ grupo('dg2_resultado', reg.dg2_resultado, [('PRENHE','PRENHE','verde'),('PERDA','PERDA','vermelho'),('A CONFIRMAR','A CONFIRMAR','ambar')]) }}
           <div class="mr-sexagem">
-            <span class="mr-sub" style="color:#2c6e8a;">Sexagem fetal</span>
+            <span class="mr-sub" style="color:#2c6e8a;">Sexagem fetal confirmada:</span>
             {{ grupo('sexagem', reg.sexagem, [('FEMEA','FÊMEA','azul'),('MACHO','MACHO','azul'),('INDETERMINADA','INDET.','ambar')]) }}
           </div>
-          <input type="text" name="dg2_obs" value="{{ reg.dg2_obs or '' }}" placeholder="Obs. DG 60d / sexagem (ex.: feto vivo)">
+          <input type="text" name="dg2_obs" value="{{ reg.dg2_obs or '' }}" placeholder="Obs. Sexagem / Feto (ex: Feto vivo, genitália feminina)...">
         </div>
       </div>
 
       <div class="card">
-        <span class="mr-rotulo">4. Corpo lúteo (CL) e ECC</span>
+        <span class="mr-rotulo">4. Avaliação de Corpo Lúteo (CL) &amp; ECC</span>
         <div class="linha">
-          <span class="mr-sub">Corpo lúteo</span>
+          <span class="mr-sub">Presença de corpo lúteo</span>
           {{ grupo('corpo_luteo', reg.corpo_luteo, [('DIREITO','CL DIREITO','verde'),('ESQUERDO','CL ESQUERDO','verde'),('SEM CL','SEM CL','vermelho')]) }}
         </div>
         <div class="linha">
-          <span class="mr-sub">Escore de condição corporal (ECC)</span>
-          {{ grupo('ecc', reg.ecc, [('2.0','2.0','verde'),('2.5','2.5','verde'),('3.0','3.0','verde'),('3.5','3.5','verde'),('4.0','4.0','verde'),('4.5','4.5','verde')], 6) }}
+          <span class="mr-sub">Escore condição corporal (ECC)</span>
+          {{ grupo('ecc', reg.ecc, [('2.5','2.5','verde'),('3.0','3.0','verde'),('3.5','3.5','verde'),('4.0','4.0','verde')], 4) }}
         </div>
       </div>
     </section>
@@ -192,10 +200,10 @@
     <!-- ============ ABA 2: DOADORA ============ -->
     <section class="mr-painel" id="aba-doadora" hidden>
       <div class="card embriao">
-        <span class="mr-rotulo" style="color:var(--verde);">Doadora (FIV)</span>
+        <div class="mr-cab"><span class="mr-rotulo" style="color:var(--verde);">Informações da Doadora (FIV)</span><span class="mr-selo verde">Linhagem Materna</span></div>
         <div class="linha">
-          <span class="mr-sub">Nome / registro da doadora</span>
-          <input type="text" name="doadora_nome" value="{{ reg.doadora_nome or '' }}" placeholder="Ex.: GIR-1004 - SOBRADA FIV" style="text-transform:uppercase;">
+          <span class="mr-sub">Nome / RGT da doadora</span>
+          <input type="text" name="doadora_nome" value="{{ reg.doadora_nome or '' }}" placeholder="Digite o nome ou registro..." style="text-transform:uppercase;">
         </div>
         <div class="duas">
           <div>
@@ -213,28 +221,28 @@
       </div>
 
       <div class="card embriao">
-        <span class="mr-rotulo" style="color:var(--verde);">Embrião e inovulação</span>
+        <span class="mr-rotulo" style="color:var(--verde);">Dados do Embrião &amp; Inovulação</span>
         <div class="duas linha">
           <div>
-            <span class="mr-sub">Código / lote do embrião</span>
+            <span class="mr-sub">Código / lote embrião</span>
             <input type="text" name="embriao_codigo" value="{{ reg.embriao_codigo or '' }}" style="text-transform:uppercase;">
           </div>
           <div>
-            <span class="mr-sub">Data da OPU (coleta)</span>
+            <span class="mr-sub">Data OPU / Pouso</span>
             <input type="date" name="embriao_data_opu" value="{{ reg.embriao_data_opu or '' }}">
           </div>
         </div>
         <div class="linha">
-          <span class="mr-sub">Grau do embrião</span>
-          {{ grupo('embriao_grau', reg.embriao_grau, [('GRAU 1','GRAU 1<br>excelente','verde'),('GRAU 2','GRAU 2<br>bom','verde'),('GRAU 3','GRAU 3<br>regular','ambar')]) }}
+          <span class="mr-sub">Classificação / grau do embrião</span>
+          {{ grupo('embriao_grau', reg.embriao_grau, [('GRAU 1','GRAU 1 (EXCELENTE)','verde'),('GRAU 2','GRAU 2 (BOM)','verde')], 2) }}
         </div>
         <div class="linha">
           <span class="mr-sub">Conservação</span>
-          {{ grupo('embriao_conservacao', reg.embriao_conservacao, [('FRESCO','FRESCO','verde'),('VITRIFICADO','VITRIFICADO','verde')], 2) }}
+          {{ grupo('embriao_conservacao', reg.embriao_conservacao, [('FRESCO','FRESCO (DT)','verde'),('VITRIFICADO','VITRIFICADO','verde')], 2) }}
         </div>
         <div class="linha">
           <span class="mr-sub">Observações do embriologista</span>
-          <textarea name="embriao_obs" rows="2" placeholder="Anotações técnicas do embrião">{{ reg.embriao_obs or '' }}</textarea>
+          <textarea name="embriao_obs" rows="2" placeholder="Anotações técnicas do embrião...">{{ reg.embriao_obs or '' }}</textarea>
         </div>
       </div>
     </section>
@@ -242,10 +250,10 @@
     <!-- ============ ABA 3: TOURO ============ -->
     <section class="mr-painel" id="aba-touro" hidden>
       <div class="card touro">
-        <span class="mr-rotulo" style="color:#2c5d8a;">Touro (pai)</span>
+        <div class="mr-cab"><span class="mr-rotulo" style="color:#2c5d8a;">Identificação do Touro (Pai)</span><span class="mr-selo azul">Linhagem Paterna</span></div>
         <div class="linha">
-          <span class="mr-sub">Nome / registro do touro</span>
-          <input type="text" name="touro_nome" value="{{ reg.touro_nome or '' }}" placeholder="Nome registrado do touro" style="text-transform:uppercase;">
+          <span class="mr-sub">Nome / RGT do touro</span>
+          <input type="text" name="touro_nome" value="{{ reg.touro_nome or '' }}" placeholder="Nome registrado do touro..." style="text-transform:uppercase;">
         </div>
         <div class="duas">
           <div>
@@ -263,7 +271,7 @@
       </div>
 
       <div class="card touro">
-        <span class="mr-rotulo" style="color:#2c5d8a;">Palheta e botijão</span>
+        <span class="mr-rotulo" style="color:#2c5d8a;">Especificações da Palheta &amp; Botijão</span>
         <div class="linha">
           <span class="mr-sub">Tipo de sêmen</span>
           {{ grupo('semen_tipo', reg.semen_tipo, [('SEXADO FEMEA','SEXADO FÊMEA','azul'),('SEXADO MACHO','SEXADO MACHO','azul'),('CONVENCIONAL','CONVENCIONAL','verde')]) }}
@@ -299,10 +307,10 @@
             · Parto: {{ r.prev.parto.strftime('%d/%m/%Y') if r.prev.parto else '-' }}
           </div>
           <div style="display:flex;gap:8px;">
-            <a href="{{ url_for('produtor_editar', token=token, rid=r.id) }}" class="btn btn-primary" style="flex:1;text-align:center;padding:12px 8px;">Abrir / lançar DG</a>
+            <a href="{{ u.editar(r.id) }}" class="btn btn-primary" style="flex:1;text-align:center;padding:12px 8px;">Abrir / lançar DG</a>
             {% if r.pode_excluir %}
             <button type="button" class="btn btn-danger-ghost" style="padding:12px 14px;"
-                    data-excluir="{{ url_for('produtor_excluir', token=token, rid=r.id) }}" data-brinco="{{ (r.brinco or '')|e }}">Apagar</button>
+                    data-excluir="{{ u.excluir(r.id) }}" data-brinco="{{ (r.brinco or '')|e }}">Apagar</button>
             {% endif %}
           </div>
         </div>
@@ -316,10 +324,10 @@
     <div class="mr-barra" id="barra-enviar">
       <div class="dentro">
         {% if registro_id %}
-          <a href="{{ url_for('produtor_home', token=token) if modo == 'produtor' else url_for('manejo_lista') }}" class="btn btn-ghost">Cancelar</a>
+          <a href="{{ u.home if modo == 'produtor' else url_for('manejo_lista') }}" class="btn btn-ghost">Cancelar</a>
           <button type="submit" class="btn btn-primary" id="enviar">Salvar alterações</button>
         {% else %}
-          <button type="submit" class="btn btn-primary" id="enviar">{{ 'Registrar animal →' if modo == 'produtor' else 'Confirmar e próximo animal →' }}</button>
+          <button type="submit" class="btn btn-primary" id="enviar">Confirmar e próximo animal →</button>
         {% endif %}
       </div>
     </div>
@@ -374,14 +382,12 @@
   function recalcular() {
     var v = document.getElementById('data_procedimento').value;
     var tipo = form.elements['tipo_manejo'].value;
-    var ids = ['prev-dg1', 'prev-dg2', 'prev-parto', 'rot-dg1', 'rot-dg2'];
+    var ids = ['prev-parto', 'rot-dg1', 'rot-dg2'];
     if (!v) { ids.forEach(function (i) { document.getElementById(i).textContent = '—'; }); return; }
     var p = v.split('-');
     var base = new Date(+p[0], +p[1] - 1, +p[2]);
     var dg1 = fmt(somar(base, DIAS_DG1)), dg2 = fmt(somar(base, DIAS_DG2));
     var parto = fmt(somar(base, DIAS_PARTO[tipo] || 284));
-    document.getElementById('prev-dg1').textContent = dg1;
-    document.getElementById('prev-dg2').textContent = dg2;
     document.getElementById('prev-parto').textContent = parto;
     document.getElementById('rot-dg1').textContent = dg1;
     document.getElementById('rot-dg2').textContent = dg2;
@@ -427,7 +433,7 @@
     if (!a) {
       info.className = 'mr-animal nao';
       info.textContent = MODO === 'produtor'
-        ? 'Esse brinco não está entre os seus animais. Confira o número.'
+        ? 'Esse brinco não está entre os {{ dono|default("seus animais") }}. Confira o número.'
         : 'Brinco não encontrado no cadastro de animais — será gravado só com o número digitado.';
       return;
     }
@@ -508,7 +514,7 @@
     var falta = !registro.brinco.trim() ? 'Informe o brinco da matriz.'
               : !registro.tipo_manejo ? 'Escolha IATF ou TETF.'
               : !registro.data_procedimento ? 'Informe a data do procedimento.' : '';
-    if (!falta && MODO === 'produtor' && !achar(registro.brinco)) falta = 'Esse brinco não está entre os seus animais. Confira o número.';
+    if (!falta && MODO === 'produtor' && !achar(registro.brinco)) falta = 'Esse brinco não está entre os {{ dono|default("seus animais") }}. Confira o número.';
     if (falta) { ManejoFila.aviso(falta, 'erro'); irParaAba('aba-receptora'); return; }
 
     botao.disabled = true; botao.textContent = 'Salvando...';

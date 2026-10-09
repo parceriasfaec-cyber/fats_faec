@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Importar dados dos animais - FATS{% endblock %}
+{% block content %}
+
+<div class="card">
+  <div class="toolbar">
+    <h2 style="margin:0; color: var(--verde-escuro);">📥 Importar dados dos animais</h2>
+    <a href="{{ url_for('animais') }}" class="btn btn-ghost">← Voltar para animais</a>
+  </div>
+  <p style="color:var(--cinza); margin-top:-6px;">
+    Preenche a <strong>ficha</strong> de animais que já estão cadastrados: peso (só de quem está sem peso), grau de sangue, pai, brinco da mãe e data de nascimento.
+    O animal é achado pelo <strong>Brinco FAEC</strong>; os brincos e um peso que já existe <strong>não são alterados</strong>. Antes de gravar, você vê uma prévia.
+  </p>
+</div>
+
+{% if not previa %}
+<div class="card">
+  <h3 style="margin-top:0;">Como a planilha deve ser</h3>
+  <ul style="line-height:1.7; color:var(--verde-escuro);">
+    <li>Coluna obrigatória: <code>Brinco FAEC</code> (<code>52</code> e <code>0052</code> valem o mesmo animal).</li>
+    <li>Opcionais: <code>Brinco Fazenda</code> (só conferido — se for diferente do cadastro, a linha não entra), <code>Peso Atual</code> (só entra se o animal estiver sem peso), <code>Grau de Sangue</code>, <code>Pai</code>, <code>Brinco da Mãe</code>, <code>Data de Nascimento</code>.</li>
+    <li>Colunas que não são da ficha são ignoradas. Célula <strong>vazia nunca apaga</strong> o que já está no sistema.</li>
+    <li>Animal que não existe em Animais não é criado: aparece na prévia como problema.</li>
+  </ul>
+</div>
+<div class="card">
+  <form method="post" enctype="multipart/form-data"
+        onsubmit="var b=document.getElementById('btn-ler'); b.disabled=true; b.textContent='Lendo...';">
+    <label style="font-weight:600;">Planilha (.xlsx)</label><br>
+    <input type="file" name="planilha" accept=".xlsx" required style="margin:8px 0;">
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" id="btn-ler">Ler planilha e ver prévia</button>
+    </div>
+  </form>
+</div>
+
+{% else %}
+
+<div class="stats-row">
+  <div class="stat-mini"><div class="rotulo">Serão atualizados</div><div class="valor">{{ previa.atualizar|length }}</div></div>
+  <div class="stat-mini"><div class="rotulo">Já estavam iguais</div><div class="valor">{{ previa.sem_mudanca|length }}</div></div>
+  <div class="stat-mini"><div class="rotulo">Com problema</div><div class="valor">{{ previa.problemas|length }}</div></div>
+</div>
+
+{% if previa.problemas %}
+<div class="card">
+  <h3 style="margin-top:0;">❗ Não serão importados ({{ previa.problemas|length }})</h3>
+  <div class="tabela-scroll">
+    <table class="list">
+      <thead><tr><th>Linha</th><th>Brinco FAEC</th><th>Motivo</th></tr></thead>
+      <tbody>
+        {% for p in previa.problemas %}<tr><td>{{ p.linha }}</td><td>{{ p.brinco }}</td><td>{{ p.motivo }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if previa.atualizar %}
+<div class="card">
+  <h3 style="margin-top:0;">✅ Serão atualizados ({{ previa.atualizar|length }})</h3>
+  <div class="tabela-scroll">
+    <table class="list">
+      <thead><tr><th>Brinco FAEC</th><th>Fazenda</th><th>O que muda</th></tr></thead>
+      <tbody>
+        {% for it in previa.atualizar %}
+        <tr>
+          <td class="nowrap">{{ it.brinco }}</td>
+          <td class="nowrap">{{ it.fazenda or '-' }}</td>
+          <td>
+            {% for m in it.mudancas %}
+              <div><strong>{{ m.rotulo }}:</strong>
+                {% if m.antes %}<span style="color:var(--erro);">{{ m.antes }}</span> → {% endif %}<span>{{ m.depois }}</span>
+                {% if m.antes %}<em style="color:var(--aviso); font-size:.78rem;"> (troca o valor atual)</em>{% endif %}
+              </div>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <form method="post" action="{{ url_for('confirmar_importar_dados_animais') }}" style="margin-top:16px;"
+        onsubmit="var b=document.getElementById('btn-confirmar'); b.disabled=true; b.textContent='Gravando...';">
+    <input type="hidden" name="linhas" value="{{ linhas_json }}">
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" id="btn-confirmar">Confirmar e atualizar {{ previa.atualizar|length }} animal(is)</button>
+      <a href="{{ url_for('importar_dados_animais') }}" class="btn btn-ghost">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% else %}
+<div class="card">
+  <p>Nenhuma mudança para gravar com essa planilha.</p>
+  <a href="{{ url_for('importar_dados_animais') }}" class="btn btn-ghost">← Enviar outra planilha</a>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

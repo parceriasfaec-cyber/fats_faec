@@ -88,13 +88,17 @@
   {% if animais_pendentes %}
   <div class="tabela-scroll">
   <table class="list">
-    <thead><tr><th>Brinco FAEC</th><th>Brinco Fazenda</th><th>Peso</th><th>Salvo em</th><th class="actions">Ações</th></tr></thead>
+    <thead><tr><th>Brinco FAEC</th><th>Brinco Fazenda</th><th>Peso</th><th>Grau de sangue</th><th>Pai</th><th>Brinco da mãe</th><th>Nascimento</th><th>Salvo em</th><th class="actions">Ações</th></tr></thead>
     <tbody>
       {% for animal in animais_pendentes %}
       <tr>
         <td>{{ animal.brinco_faec }}</td>
         <td>{{ animal.brinco_fazenda or '-' }}</td>
         <td>{{ animal.peso or '-' }}</td>
+        <td>{{ animal.grau_sangue or '-' }}</td>
+        <td>{{ animal.pai or '-' }}</td>
+        <td>{{ animal.brinco_mae or '-' }}</td>
+        <td>{{ animal.data_nascimento or '-' }}</td>
         <td>{{ animal.criado_em_local }}</td>
         <td class="actions">
           <form method="post" action="{{ url_for('excluir_animal_pendente_rota', id_local=animal.id_local) }}" onsubmit="return confirm('Excluir este animal da fila? Ele não será sincronizado.');">

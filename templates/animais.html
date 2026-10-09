@@ -2,48 +2,70 @@
 {% import "_paginacao.html" as pag %}
 {% block title %}Animais - FATS{% endblock %}
 {% block content %}
-<div class="grid" style="grid-template-columns: repeat(3, 1fr); gap:16px; margin-bottom:16px;">
-  <div class="card card-stat">
-    <div style="font-size:0.8rem; color:var(--cinza);">Total de animais</div>
-    <div style="font-size:1.8rem; font-weight:600;">{{ total }}</div>
+<div class="an-hero">
+  <div class="an-hero-ico"><svg viewBox="0 0 48 48" width="34" height="34" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10c0 5 3 7 6 8M40 10c0 5-3 7-6 8"/><path d="M14 18c-1 4-1 9 2 14 1 3 3 5 8 5s7-2 8-5c3-5 3-10 2-14-3-2-7-3-10-3s-7 1-10 3z"/><ellipse cx="24" cy="31" rx="7" ry="5"/><circle cx="20.5" cy="31" r="1" fill="#fff"/><circle cx="27.5" cy="31" r="1" fill="#fff"/><circle cx="19" cy="23" r="1.2" fill="#fff"/><circle cx="29" cy="23" r="1.2" fill="#fff"/></svg></div>
+  <div class="an-hero-txt">
+    <h1>Animais</h1>
+    <p>{{ total_filtrado }} registro{{ '' if total_filtrado == 1 else 's' }} encontrado{{ '' if total_filtrado == 1 else 's' }}</p>
   </div>
-  <div class="card card-stat">
-    <div style="font-size:0.8rem; color:var(--cinza);">Disponíveis</div>
-    <div style="font-size:1.8rem; font-weight:600;">{{ disponiveis }}</div>
-  </div>
-  <div class="card card-stat acento-terra">
-    <div style="font-size:0.8rem; color:var(--cinza);">Já alocados</div>
-    <div style="font-size:1.8rem; font-weight:600;">{{ alocados }}</div>
+  <svg class="an-hero-art" viewBox="0 0 420 100" preserveAspectRatio="xMaxYMax slice" aria-hidden="true"><path d="M0 100 C80 70 160 62 240 78 C300 88 360 60 420 40 L420 100Z" fill="#c9bf9a" opacity=".35"/><path d="M120 100 C200 82 280 84 340 70 C380 60 400 48 420 30 L420 100Z" fill="#4e5c2e" opacity=".22"/></svg>
+  <div class="an-chips">
+    <div class="an-chip "><span class="an-chip-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 0 5 2 5 5 0 2-1 3-1 5l-1 3h-6l-1-3c0-2-1-3-1-5 0-3 2-5 5-5z"/><circle cx="12" cy="8" r="1.6"/><path d="M10 15v3a2 2 0 0 0 4 0v-3"/></svg></span><span class="an-chip-num">{{ total }}</span><span class="an-chip-lbl">Total</span></div>
+    <div class="an-chip "><span class="an-chip-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></svg></span><span class="an-chip-num">{{ disponiveis }}</span><span class="an-chip-lbl">Disponíveis</span></div>
+    <div class="an-chip terra"><span class="an-chip-ico"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.6"/></svg></span><span class="an-chip-num">{{ alocados }}</span><span class="an-chip-lbl">Alocados</span></div>
   </div>
 </div>
 
-<div class="card">
-  <div class="toolbar">
-    <form method="get" style="display:flex; gap:8px;">
-      <input type="search" name="q" placeholder="Buscar por brinco ou produtor" value="{{ busca }}" style="width:320px;">
+
+<div class="card an-card-main">
+  <div class="an-busca">
+    <form method="get" class="an-busca-form">
+      <input type="search" name="q" placeholder="Buscar por brinco, pai, mãe, produtor ou município" value="{{ busca }}">
       {{ pag.seletor(por_pagina) }}
       <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
     </form>
-    <a href="{{ url_for('index') }}" class="btn btn-ghost">👥 Produtores</a>
-    <a href="{{ url_for('importar_fotos_lote') }}" class="btn btn-ghost">📥 Importar fotos em lote</a>
-    <a href="{{ url_for('importar_alocacoes') }}" class="btn btn-ghost">📥 Importar alocações (Excel)</a>
-    <a href="{{ url_for('exportar_alocacoes_excel') }}" class="btn btn-ghost">⬇ Exportar Excel (alocados)</a>
-    <a href="{{ url_for('novo_animal') }}" class="btn btn-primary">➕ Novo Animal</a>
+    <a href="{{ url_for('novo_animal') }}" class="btn btn-primary an-novo">➕ Novo Animal</a>
   </div>
+  <div class="an-acoes-grid">
+    <a href="{{ url_for('index') }}" class="an-acao "><span class="an-acao-ico">👥</span><span class="an-acao-txt"><b>Produtores</b><small>Ver os produtores cadastrados</small></span></a>
+    <a href="{{ url_for('importar_fotos_lote') }}" class="an-acao "><span class="an-acao-ico">🖼</span><span class="an-acao-txt"><b>Importar fotos em lote</b><small>Envia várias fotos de uma vez, pelo brinco</small></span></a>
+    <a href="{{ url_for('importar_alocacoes') }}" class="an-acao "><span class="an-acao-ico">📥</span><span class="an-acao-txt"><b>Importar alocações (Excel)</b><small>Liga os animais aos produtores</small></span></a>
+    <a href="{{ url_for('importar_dados_animais') }}" class="an-acao "><span class="an-acao-ico">📋</span><span class="an-acao-txt"><b>Importar dados dos animais (Excel)</b><small>Atualiza peso, grau de sangue, pai, mãe e nascimento</small></span></a>
+    <a href="{{ url_for('exportar_alocacoes_excel') }}" class="an-acao "><span class="an-acao-ico">⬇</span><span class="an-acao-txt"><b>Exportar Excel (alocados)</b><small>Baixa a lista dos animais já alocados</small></span></a>
+  </div>
+  <style>
+    .an-busca { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:12px; }
+    .an-busca-form { display:flex; gap:8px; align-items:center; flex:1; min-width:260px; }
+    .an-busca-form input[type=search] { flex:1 1 280px; min-width:180px; max-width:420px; width:auto; }
+    .an-busca-form select { flex:0 0 auto; width:auto; }
+    .an-busca .btn, .an-busca-form select { height:40px; }
+  </style>
 
   {% if animais %}
+  <style>
+    .tabela-scroll { max-width:100%; }
+    .an-sub { display:block; margin-top:2px; font-size:0.76rem; font-weight:400; color:#9a8f7a; text-transform:none; letter-spacing:0; line-height:1.35; }
+    .an-sub b { font-weight:600; color:#8a7f69; }
+    .an-prin { font-weight:600; color:var(--tinta); }
+    .an-brinco { font-family:var(--fonte-titulo); font-size:1.12rem; font-weight:700; color:var(--verde-escuro); }
+    table.an-tabela td { vertical-align:middle; }
+    .an-nw, .an-nw .an-sub { white-space:nowrap; }
+    table.an-tabela td, table.an-tabela th { padding-top:7px; padding-bottom:7px; }
+    table.an-tabela td, table.an-tabela th { padding-left:8px; padding-right:8px; }
+    table.an-tabela td.col-principal:nth-child(5) { min-width:150px; max-width:240px; }
+    table.an-tabela .foto-thumb, table.an-tabela .foto-thumb-placeholder { width:40px; height:40px; }
+  </style>
   <div class="tabela-scroll">
-  <table class="list">
+  <table class="list an-tabela">
     <thead>
       <tr>
-        <th class="col-principal nowrap">Foto</th>
-        <th class="col-principal nowrap">Brinco FAEC</th>
-        <th class="col-principal">Brinco Fazenda</th>
-        <th class="nowrap">Peso (kg)</th>
-        <th>Status</th>
+        <th class="nowrap">Foto</th>
+        <th class="col-principal nowrap">Animal</th>
+        <th>Grau de sangue / peso</th>
+        <th>Pai e mãe</th>
         <th class="col-principal">Produtor</th>
-        <th class="nowrap">Fotos</th>
-        <th class="actions">Ações</th>
+        <th>Status</th>
+        <th class="actions" style="text-align:right;">Ações</th>
       </tr>
     </thead>
     <tbody>
@@ -58,9 +80,26 @@
           <span class="foto-thumb-placeholder">-</span>
           {% endif %}
         </td>
-        <td class="nowrap">{{ a['brinco_faec'] }}</td>
-        <td>{{ a['brinco_fazenda'] or '-' }}</td>
-        <td class="nowrap">{{ a['peso'] or '-' }}</td>
+        <td class="nowrap">
+          <span class="an-brinco">{{ a['brinco_faec'] }}</span>
+          <span class="an-sub">Fazenda: {{ a['brinco_fazenda'] or '-' }} · 📷 {{ [a['foto_1'], a['foto_2'], a['foto_3']] | select | list | length }}</span>
+        </td>
+        <td class="an-nw">
+          <span class="an-prin">{{ a['grau_sangue'] or '-' }}</span>
+          <span class="an-sub">{% if a['peso'] %}{{ a['peso'] }} kg{% else %}sem peso{% endif %}</span>
+        </td>
+        <td class="an-nw">
+          <span class="an-prin">{{ a['pai'] or '-' }}</span>
+          <span class="an-sub">Mãe: {{ a['brinco_mae'] or '-' }}{% if a['data_nascimento'] %} · Nasc. {{ a['data_nascimento'] }}{% endif %}</span>
+        </td>
+        <td class="col-principal">
+          {% if a['nome_produtor'] %}
+            <a class="link-produtor" href="{{ url_for('animais_produtor', pid=a['produtor_id']) }}">{{ a['nome_produtor']|upper }}</a>
+            {% if a['municipio'] %}<span class="an-sub">{{ a['municipio']|upper }}</span>{% endif %}
+          {% else %}
+            -
+          {% endif %}
+        </td>
         <td>
           {% if a['status'] == 'alocado' %}
             <span class="flash success" style="display:inline-block; padding:2px 8px; margin:0;">Alocado</span>
@@ -68,21 +107,13 @@
             <span class="flash aviso" style="display:inline-block; padding:2px 8px; margin:0;">Disponível</span>
           {% endif %}
         </td>
-        <td class="col-principal">
-          {% if a['nome_produtor'] %}
-            <a class="link-produtor" href="{{ url_for('animais_produtor', pid=a['produtor_id']) }}">{{ a['nome_produtor']|upper }}</a>
-          {% else %}
-            -
-          {% endif %}
-        </td>
-        <td class="nowrap">
-          {{ [a['foto_1'], a['foto_2'], a['foto_3']] | select | list | length }}
-        </td>
         <td class="actions">
-          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('fotos_animal', aid=a['id']) }}">✏️ Editar</a>
-          <form method="post" action="{{ url_for('excluir_animal', aid=a['id']) }}" style="display:inline;" onsubmit="return confirm('Excluir este animal? Esta ação não pode ser desfeita.');">
-            <button type="submit" class="btn btn-danger-ghost btn-sm">🗑 Excluir</button>
-          </form>
+          <div class="an-acoes">
+            <a class="btn btn-outline-terra an-ico" href="{{ url_for('fotos_animal', aid=a['id']) }}" title="Editar a ficha do animal" aria-label="Editar animal {{ a['brinco_faec'] }}">✏️</a>
+            <form method="post" action="{{ url_for('excluir_animal', aid=a['id']) }}" onsubmit="return confirm('Excluir o animal {{ a['brinco_faec'] }}? Esta ação não pode ser desfeita.');">
+              <button type="submit" class="btn btn-danger-ghost an-ico" title="Excluir animal" aria-label="Excluir animal {{ a['brinco_faec'] }}">🗑</button>
+            </form>
+          </div>
         </td>
       </tr>
       {% endfor %}

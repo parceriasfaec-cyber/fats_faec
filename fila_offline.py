@@ -29,6 +29,9 @@ EXTENSOES_PERMITIDAS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 # guardada como arquivo local em vez de texto)
 _CAMPOS_TEXTO = [f for f in FIELDS if f != "foto_produtor"]
 
+# Campos da ficha do animal alem de brinco FAEC / fazenda / peso
+CAMPOS_FICHA_ANIMAL = ["grau_sangue", "pai", "brinco_mae", "data_nascimento"]
+
 
 def _conectar():
     conn = sqlite3.connect(str(FILA_DB_PATH))
@@ -76,6 +79,11 @@ def init_fila():
             criado_em_local TEXT
         )
     """)
+    # Fila criada antes da ficha completa do animal: acrescenta as colunas novas.
+    existentes_animais = {r[1] for r in conn.execute("PRAGMA table_info(fila_animais)")}
+    for c in CAMPOS_FICHA_ANIMAL:
+        if c not in existentes_animais:
+            conn.execute(f'ALTER TABLE fila_animais ADD COLUMN "{c}" TEXT')
     conn.commit()
     conn.close()
 
@@ -191,14 +199,15 @@ def excluir_visita_pendente(id_local: int):
     remover_visita_da_fila(id_local)
 
 
-def adicionar_animal_na_fila(brinco_faec: str, brinco_fazenda: str, peso: str) -> int:
+def adicionar_animal_na_fila(brinco_faec: str, brinco_fazenda: str, peso: str, extras: dict = None) -> int:
     init_fila()
+    extras = extras or {}
     conn = _conectar()
+    colunas = ["brinco_faec", "brinco_fazenda", "peso", "criado_em_local"] + CAMPOS_FICHA_ANIMAL
     cur = conn.execute(
-        "INSERT INTO fila_animais "
-        "(brinco_faec, brinco_fazenda, peso, criado_em_local) VALUES (?, ?, ?, ?)",
-        (brinco_faec, brinco_fazenda or None, peso or None,
-         datetime.now().strftime("%d/%m/%Y %H:%M")),
+        f"INSERT INTO fila_animais ({', '.join(colunas)}) VALUES ({', '.join(['?'] * len(colunas))})",
+        [brinco_faec, brinco_fazenda or None, peso or None, datetime.now().strftime("%d/%m/%Y %H:%M")]
+        + [extras.get(c) or None for c in CAMPOS_FICHA_ANIMAL],
     )
     conn.commit()
     id_local = cur.lastrowid

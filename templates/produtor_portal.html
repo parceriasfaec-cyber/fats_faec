@@ -1,23 +1,37 @@
 {% extends "base.html" %}
 {% block title %}Manejo reprodutivo{% endblock %}
-{% block manifest %}<link rel="manifest" href="{{ url_for('produtor_manifest', token=token) }}">{% endblock %}
+{% block manifest %}<link rel="manifest" href="{{ u.manifest }}">{% endblock %}
 {% block sidebar %}{% endblock %}
 {% block rodape %}{% endblock %}
 {% block body_class %}tela-manejo{% endblock %}
 
 {% block content %}
-<script>window.MANEJO_API = {{ url_for('produtor_api_salvar', token=token)|tojson }};</script>
+<script>window.MANEJO_API = {{ u.api|tojson }};</script>
 {% set titulo = (produtor.nome_produtor or '')|title %}
 {% set contador = total_animais ~ (' animal' if total_animais == 1 else ' animais') %}
-{% if registro_id %}{% set voltar_url = url_for('produtor_home', token=token) %}{% set voltar_texto = 'Voltar' %}{% else %}{% set sem_voltar = True %}{% endif %}
+{% if registro_id %}{% set voltar_url = u.home %}{% set voltar_texto = 'Voltar' %}
+{% elif quem == 'tecnico' %}{% set voltar_url = u.trocar %}{% set voltar_texto = 'Outro produtor' %}
+{% else %}{% set sem_voltar = True %}{% endif %}
 {% include "_manejo_mobile.html" %}
 
 <div class="page-header desktop-only" style="max-width:720px;margin:0 auto 14px;">
   <div>
     <h1>{{ 'Editar manejo' if registro_id else 'Manejo reprodutivo' }}</h1>
-    <p class="subtitulo">{{ (produtor.nome_produtor or '')|title }}{% if produtor.nome_propriedade %} · {{ produtor.nome_propriedade|title }}{% endif %} · {{ total_animais }} animal(is)</p>
+    <p class="subtitulo">{{ (produtor.nome_produtor or '')|title }}{% if produtor.nome_propriedade %} · {{ produtor.nome_propriedade|title }}{% endif %} · {{ total_animais }} animal(is){% if tecnico %} · Técnico: {{ tecnico.nome|title }}{% endif %}</p>
+    {% if quem == 'tecnico' %}<p class="subtitulo"><a href="{{ u.trocar }}">‹ Escolher outro produtor</a></p>{% endif %}
   </div>
 </div>
+{% if quem == 'tecnico' and not registro_id %}
+<script>
+  /* guarda os últimos produtores abertos para o técnico voltar a eles com um toque */
+  try {
+    var k = 'fats-tec-recentes', l = JSON.parse(localStorage.getItem(k) || '[]');
+    var e = { url: {{ u.home|tojson }}, nome: {{ (produtor.nome_produtor or '')|title|tojson }}, prop: {{ (produtor.nome_propriedade or '')|title|tojson }} };
+    l = [e].concat(l.filter(function (x) { return x.url !== e.url; })).slice(0, 8);
+    localStorage.setItem(k, JSON.stringify(l));
+  } catch (x) {}
+</script>
+{% endif %}
 
 {% include "_manejo_formulario.html" %}
 {% endblock %}

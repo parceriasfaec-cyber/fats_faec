@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Técnicos - Manejo - FATS{% endblock %}
+{% block content %}
+<style>
+  .lk-topo h1 { margin:0; font-size:1.5rem; color:var(--verde-escuro); }
+  .lk-topo p { margin:4px 0 14px; color:var(--cinza); font-size:.9rem; }
+  .lk-link { font-family:ui-monospace,Consolas,monospace; font-size:.78rem; color:var(--cinza); word-break:break-all; }
+  .lk-acoes { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .lk-sem { color:var(--aviso); font-weight:600; font-size:.85rem; }
+  .tec-off { opacity:.55; }
+</style>
+<div class="lk-topo">
+  <p style="margin:0 0 6px;"><a href="{{ url_for('manejo_links') }}">🔗 Links dos produtores</a> · <a href="{{ url_for('manejo_lista') }}">Registros</a></p>
+  <h1>Técnicos</h1>
+  <p>Cada técnico recebe um link pessoal. Pelo celular ele digita o CPF do produtor e cadastra o manejo dos animais daquele produtor. Cada registro fica com o nome de quem fez.</p>
+</div>
+
+<div class="card">
+  <form method="post" action="{{ url_for('manejo_tecnicos_novo') }}" class="filtros-row">
+    <input type="text" name="nome" placeholder="Nome do técnico" required style="flex:1 1 220px;">
+    <input type="text" name="telefone" placeholder="WhatsApp (com DDD)" inputmode="tel" style="flex:1 1 160px;">
+    <button type="submit" class="btn btn-primary">+ Cadastrar técnico</button>
+  </form>
+  <div style="margin-top:10px;">
+    <label for="base">Endereço do site dos produtores (o mesmo da tela de links)</label>
+    <input type="text" id="base" placeholder="https://fats-produtores.vercel.app">
+  </div>
+</div>
+
+<div class="card">
+  <div class="tabela-scroll">
+  <table class="list">
+    <thead><tr><th class="col-principal">Técnico</th><th>Registros</th><th>Link</th></tr></thead>
+    <tbody>
+    {% for t in tecnicos %}
+      <tr class="{{ '' if t.ativo else 'tec-off' }}" data-token="{{ t.token_acesso or '' }}" data-nome="{{ t.nome }}" data-zap="{{ t.whatsapp }}">
+        <td class="col-principal">{{ t.nome|title }}{% if not t.ativo %}<span style="display:block;font-size:.78rem;color:var(--erro);">desativado — o link não abre</span>{% endif %}
+          <span style="display:block;font-size:.78rem;color:var(--cinza);font-weight:400;">{{ t.telefone or 'sem telefone' }}</span></td>
+        <td class="nowrap">{{ t.qtd_registros }}</td>
+        <td>
+          {% if t.token_acesso %}
+            <div class="lk-link" data-url></div>
+          {% endif %}
+          <div class="lk-acoes">
+            {% if t.token_acesso and t.ativo %}
+              <button type="button" class="btn btn-ghost btn-sm" data-copiar>Copiar link</button>
+              {% if t.whatsapp %}<a class="btn btn-primary btn-sm" data-zap-btn target="_blank" rel="noopener">Enviar no WhatsApp</a>{% endif %}
+              <form method="post" action="{{ url_for('manejo_tecnicos_renovar', tid=t.id) }}" style="display:inline;"
+                    onsubmit="return confirm('Gerar um novo link? O link antigo deste técnico vai parar de funcionar.');">
+                <button type="submit" class="btn btn-danger-ghost btn-sm">Gerar novo</button>
+              </form>
+            {% endif %}
+            <form method="post" action="{{ url_for('manejo_tecnicos_ativar', tid=t.id) }}" style="display:inline;">
+              <button type="submit" class="btn btn-ghost btn-sm">{{ 'Desativar' if t.ativo else 'Reativar' }}</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% if not tecnicos %}<p class="empty">Nenhum técnico cadastrado ainda.</p>{% endif %}
+</div>
+
+<script>
+(function () {
+  var campo = document.getElementById('base'), CHAVE = 'fats-base-produtores';
+  try { campo.value = localStorage.getItem(CHAVE) || ''; } catch (e) {}
+  function base() { var b = (campo.value || '').trim().replace(/\/+$/, ''); return b || location.origin; }
+  function montar() {
+    document.querySelectorAll('tr[data-token]').forEach(function (tr) {
+      var t = tr.dataset.token; if (!t) return;
+      var url = base() + '/t/' + t;
+      var alvo = tr.querySelector('[data-url]'); if (alvo) alvo.textContent = url;
+      var zap = tr.querySelector('[data-zap-btn]');
+      if (zap) {
+        var nome = (tr.dataset.nome || '').split(' ')[0];
+        var txt = 'Olá' + (nome ? ', ' + nome : '') + '! Este é o seu link de técnico para cadastrar o manejo reprodutivo (IATF/TETF). Abra no celular, digite o CPF do produtor e preencha a ficha: ' + url;
+        zap.href = 'https://wa.me/' + tr.dataset.zap + '?text=' + encodeURIComponent(txt);
+      }
+      tr._url = url;
+    });
+  }
+  campo.addEventListener('input', function () { try { localStorage.setItem(CHAVE, campo.value.trim()); } catch (e) {} montar(); });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copiar]'); if (!b) return;
+    var url = b.closest('tr')._url;
+    (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () {
+      b.textContent = 'Copiado ✔'; setTimeout(function () { b.textContent = 'Copiar link'; }, 1800);
+    }, function () { window.prompt('Copie o link:', url); });
+  });
+  montar();
+})();
+</script>
+{% endblock %}

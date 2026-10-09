@@ -1,14 +1,12 @@
 {% extends "base.html" %}
 {% import "_paginacao.html" as pag %}
+{% import "_pg.html" as pg %}
 {% block title %}Produtores - FATS{% endblock %}
 {% block content %}
 
-<div class="page-header">
-  <div>
-    <h1>Produtores rurais</h1>
-    <p class="subtitulo">Ficha de campo — acompanhamento por núcleo e ATEG</p>
-  </div>
-  <a href="{{ url_for('novo') }}" class="btn btn-primary">+ Novo Produtor</a>
+<div style="position:relative;">
+{% call pg.hero('Produtores rurais', total_filtrado ~ ' produtor' ~ ('' if total_filtrado == 1 else 'es') ~ ' · ficha de campo por núcleo e ATEG', 'produtores',
+   [(total_filtrado, 'Cadastrados'), (qtd_assistidos_ateg ~ ' (' ~ pct_assistidos_ateg ~ '%)', 'Assistidos ATEG'), (pct_em_meta ~ '%', 'Animais em meta'), (qtd_sem_foto, 'Sem foto', 'terra')]) %}<a href="{{ url_for('novo') }}" class="btn btn-primary" style="margin-left:6px;">+ Novo Produtor</a>{% endcall %}
 </div>
 
 <!-- Importação de produtores por planilha (sempre visível) -->
@@ -23,26 +21,6 @@
       Colunas: Nome, CPF, RG, Propriedade, Município e Telefone. CPFs já cadastrados não são duplicados (se o RG estiver vazio, ele é preenchido).
     </span>
   </form>
-</div>
-
-<div class="stats-row">
-  <div class="stat-mini">
-    <div class="rotulo">Cadastrados</div>
-    <div class="valor">{{ total_filtrado }}</div>
-  </div>
-  <div class="stat-mini">
-    <div class="rotulo">Assistidos ATEG</div>
-    <div class="valor">{{ qtd_assistidos_ateg }}</div>
-    <div style="font-size:0.8rem; color:var(--cinza);">{{ pct_assistidos_ateg }}% do total</div>
-  </div>
-  <div class="stat-mini">
-    <div class="rotulo">Animais em Meta</div>
-    <div class="valor">{{ pct_em_meta }}%</div>
-  </div>
-  <div class="stat-mini">
-    <div class="rotulo">Sem Foto Cadastrada</div>
-    <div class="valor acento-terra">{{ qtd_sem_foto }}</div>
-  </div>
 </div>
 
 <div class="card">
@@ -69,11 +47,11 @@
 
     <button class="btn btn-ghost" type="submit">🔎 Buscar</button>
 
-    <span style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
-      <a href="{{ url_for('exportar_excel', q=busca, municipio=municipio_filtro, ateg=ateg_filtro) }}" class="btn btn-ghost">⬇ Exportar Excel (cadastros)</a>
-      <a href="{{ url_for('exportar_animais_alocados', q=busca, municipio=municipio_filtro, ateg=ateg_filtro) }}" class="btn btn-ghost">⬇ Exportar Excel (animais alocados)</a>
-    </span>
   </form>
+  {{ pg.acoes([
+    (url_for('exportar_excel', q=busca, municipio=municipio_filtro, ateg=ateg_filtro), '⬇', 'Exportar Excel (cadastros)', 'Baixa a lista de produtores com os filtros atuais'),
+    (url_for('exportar_animais_alocados', q=busca, municipio=municipio_filtro, ateg=ateg_filtro), '⬇', 'Exportar Excel (animais alocados)', 'Baixa os animais alocados a estes produtores')
+  ]) }}
 
   {% if produtores %}
   <div class="tabela-scroll">
@@ -123,14 +101,16 @@
           {% endif %}
         </td>
         <td class="actions">
-          <a class="btn btn-secondary btn-sm" href="{{ url_for('editar', pid=p['id']) }}">✏️ Editar</a>
-          <a class="btn btn-outline-terra btn-sm" title="Histórico de visitas" href="{{ url_for('visitas_produtor', pid=p['id']) }}">📋</a>
-          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('animais_produtor', pid=p['id']) }}">🐄 Animais</a>
-          <a class="btn btn-outline-terra btn-sm" href="{{ url_for('pdf', pid=p['id']) }}" target="_blank">📄 PDF</a>
-          <form method="post" action="{{ url_for('excluir', pid=p['id']) }}"
-                onsubmit="return confirm('Excluir o cadastro de {{ p['nome_produtor'] or 'este produtor' }}?');">
-            <button class="btn btn-danger-ghost btn-sm" type="submit">🗑 Excluir</button>
-          </form>
+          <div class="an-acoes">
+            <a class="btn btn-secondary an-ico" title="Editar produtor" aria-label="Editar" href="{{ url_for('editar', pid=p['id']) }}">✏️</a>
+            <a class="btn btn-outline-terra an-ico" title="Histórico de visitas" aria-label="Visitas" href="{{ url_for('visitas_produtor', pid=p['id']) }}">📋</a>
+            <a class="btn btn-outline-terra an-ico" title="Animais do produtor" aria-label="Animais" href="{{ url_for('animais_produtor', pid=p['id']) }}">🐄</a>
+            <a class="btn btn-outline-terra an-ico" title="Gerar PDF da ficha" aria-label="PDF" href="{{ url_for('pdf', pid=p['id']) }}" target="_blank">📄</a>
+            <form method="post" action="{{ url_for('excluir', pid=p['id']) }}"
+                  onsubmit="return confirm('Excluir o cadastro de {{ p['nome_produtor'] or 'este produtor' }}?');">
+              <button class="btn btn-danger-ghost an-ico" type="submit" title="Excluir produtor" aria-label="Excluir">🗑</button>
+            </form>
+          </div>
         </td>
       </tr>
       {% endfor %}

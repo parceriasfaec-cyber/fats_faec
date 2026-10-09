@@ -1,7 +1,7 @@
 /* Service worker do Manejo reprodutivo: deixa a tela de registro abrir sem
    sinal. Os registros feitos offline ficam na fila do celular (IndexedDB) e
    são enviados por static/manejo_offline.js quando a internet volta. */
-const VERSAO = 'fats-manejo-v2';
+const VERSAO = 'fats-manejo-v3';
 const FIXOS = ['/static/manejo_offline.js', '/static/icone-192.png', '/static/icone-512.png'];
 const TELAS = ['/manejo/novo', '/manejo'];
 
@@ -50,7 +50,7 @@ self.addEventListener('fetch', (ev) => {
   }
 
   // telas do manejo: tenta a internet (até 4 s); sem sinal, usa a cópia guardada
-  const ehTela = req.mode === 'navigate' && (url.pathname === '/manejo' || url.pathname === '/manejo/novo' || /^\/p\/[^/]+\/?$/.test(url.pathname));
+  const ehTela = req.mode === 'navigate' && (url.pathname === '/manejo' || url.pathname === '/manejo/novo' || (/^\/p\/[^/]+\/?$/.test(url.pathname) || /^\/t\/[^/]+(\/p\/\d+)?\/?$/.test(url.pathname)));
   if (ehTela) {
     ev.respondWith((async () => {
       const chave = url.pathname + url.search;
@@ -62,7 +62,7 @@ self.addEventListener('fetch', (ev) => {
         return resposta;
       } catch (e) {
         const cache = await caches.open(VERSAO);
-        return (await cache.match(chave)) || (await cache.match(url.pathname)) || (url.pathname.startsWith('/p/') ? Response.error() : (await cache.match('/manejo/novo')) || Response.error());
+        return (await cache.match(chave)) || (await cache.match(url.pathname)) || ((url.pathname.startsWith('/p/') || url.pathname.startsWith('/t/')) ? Response.error() : (await cache.match('/manejo/novo')) || Response.error());
       }
     })());
   }

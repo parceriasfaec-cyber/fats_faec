@@ -144,6 +144,12 @@ ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS longitude TEXT;
 -- a tabela FIV.animais já existia antes desta mudança).
 ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS peso TEXT;
 
+-- Dados individuais do animal (ficha): grau de sangue, pai, mae e nascimento.
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS grau_sangue TEXT;
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS pai TEXT;
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS brinco_mae TEXT;
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS data_nascimento TEXT;
+
 -- Cria a tabela de histórico de visitas (rode este comando se o banco já
 -- existia antes desta mudança - o CREATE TABLE lá em cima já resolve se o
 -- banco for novo).
@@ -245,3 +251,16 @@ ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS del_dias INTEGER;
 ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS aptidao TEXT;
 ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS token_acesso TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_produtores_token ON "FIV".produtores(token_acesso);
+
+-- Tecnicos: cada um tem um link pessoal (/t/<codigo>) para cadastrar manejo dos
+-- produtores, e cada registro guarda quem o fez.
+CREATE TABLE IF NOT EXISTS "FIV".tecnicos (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nome TEXT NOT NULL,
+    telefone TEXT,
+    token_acesso TEXT,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tecnicos_token ON "FIV".tecnicos(token_acesso);
+ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS registrado_por TEXT;

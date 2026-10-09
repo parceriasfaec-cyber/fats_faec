@@ -48,9 +48,9 @@ OPCOES = {
     "sexagem": ["FEMEA", "MACHO", "INDETERMINADA"],
     "corpo_luteo": ["DIREITO", "ESQUERDO", "SEM CL"],
     "aptidao": ["APTA", "INAPTA"],
-    "ecc": ["2.0", "2.5", "3.0", "3.5", "4.0", "4.5"],
+    "ecc": ["2.5", "3.0", "3.5", "4.0"],
     "doadora_beta_caseina": ["A2A2", "A1A2", "A1A1"],
-    "embriao_grau": ["GRAU 1", "GRAU 2", "GRAU 3"],
+    "embriao_grau": ["GRAU 1", "GRAU 2"],
     "embriao_conservacao": ["FRESCO", "VITRIFICADO"],
     "semen_tipo": ["SEXADO FEMEA", "SEXADO MACHO", "CONVENCIONAL"],
 }
@@ -216,11 +216,12 @@ def achar_animal(brinco: str, animais: list):
     return None
 
 
-def gravar_registro(conn, dados, animais, origem=None):
+def gravar_registro(conn, dados, animais, origem=None, registrado_por=None):
     """Grava um registro (sem commit). Devolve (status, id, animal) onde
     status é "criado" ou "duplicado" (mesma matriz + tipo + data: não grava de
     novo, o que torna seguro reenviar a mesma fila duas vezes).
-    `origem` marca quem registrou ("produtor" quando veio do link do produtor)."""
+    `origem` marca de onde veio ("produtor" ou "tecnico") e `registrado_por` o
+    nome de quem registrou (técnico)."""
     animal = achar_animal(dados["brinco"], animais)
     animal_id = animal["id"] if animal else None
     if animal and animal.get("brinco_faec"):
@@ -239,11 +240,11 @@ def gravar_registro(conn, dados, animais, origem=None):
         ).fetchone()
     if existente:
         return "duplicado", existente["id"], animal
-    colunas = ["animal_id", "origem"] + CAMPOS
+    colunas = ["animal_id", "origem", "registrado_por"] + CAMPOS
     conn.execute(
         f"INSERT INTO manejo_reprodutivo ({', '.join(colunas)}) "
         f"VALUES ({', '.join(['?'] * len(colunas))})",
-        [animal_id, origem] + [dados[c] for c in CAMPOS],
+        [animal_id, origem, registrado_por] + [dados[c] for c in CAMPOS],
     )
     return "criado", None, animal
 

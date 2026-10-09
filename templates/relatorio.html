@@ -1,26 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Relatório - FATS{% endblock %}
+{% import "_pg.html" as pg %}
 {% block content %}
 
-<div class="toolbar">
-  <h2 style="margin:0; color:var(--verde-escuro);">Relatório de Produtores e Atendimentos</h2>
-  <button type="button" class="btn btn-secondary" onclick="window.print()">🖨 Imprimir</button>
-</div>
-
-<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:16px; margin-bottom:20px;">
-  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Produtores cadastrados</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.3rem; font-weight:700; color:var(--verde-escuro);">{{ total_geral }}</div>
-  </div>
-  <div class="card card-stat acento-terra" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Atendimentos registrados</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.3rem; font-weight:700; color:var(--terra);">{{ total_atendimentos }}</div>
-  </div>
-  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase;">Animais cadastrados</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.3rem; font-weight:700; color:var(--verde);">{{ total_animais }}</div>
-  </div>
-</div>
+{{ pg.hero('Relatório', 'Produtores e atendimentos', 'relatorio',
+   [(total_geral, 'Produtores'), (total_atendimentos, 'Atendimentos', 'terra'), (total_animais, 'Animais')]) }}
+<div class="an-acoes-grid"><a href="#" class="an-acao" onclick="window.print(); return false;"><span class="an-acao-ico">🖨</span><span class="an-acao-txt"><b>Imprimir</b><small>Imprime o relatório com os filtros atuais</small></span></a></div>
 
 <div class="card" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
   <form method="get" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">

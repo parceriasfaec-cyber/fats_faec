@@ -1,28 +1,11 @@
 {% extends "base.html" %}
 {% block title %}Dashboard - FATS{% endblock %}
+{% import "_pg.html" as pg %}
 {% block content %}
 
-<div class="toolbar">
-  <h2 style="margin:0; color: var(--verde-escuro);">Dashboard</h2>
-  <a href="{{ url_for('index') }}" class="btn btn-secondary">← Voltar para a lista</a>
-</div>
-
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
-  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Total de Produtores</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.6rem; font-weight:700; color:var(--verde-escuro);">{{ total }}</div>
-  </div>
-  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Fichas Completas</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.6rem; font-weight:700; color:var(--verde);">{{ qtd_completos }}</div>
-    <div style="font-size:0.8rem; color:var(--cinza);">{{ pct_completos }}% do total</div>
-  </div>
-  <div class="card card-stat acento-erro" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Fichas Incompletas</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.6rem; font-weight:700; color:var(--erro);">{{ qtd_incompletos }}</div>
-    <div style="font-size:0.8rem; color:var(--cinza);">{{ 100 - pct_completos }}% do total</div>
-  </div>
-</div>
+{{ pg.hero('Dashboard', 'Situação das fichas dos produtores', 'dashboard',
+   [(total, 'Produtores'), (qtd_completos ~ ' (' ~ pct_completos ~ '%)', 'Fichas completas'), (qtd_incompletos, 'Incompletas', 'terra')]) }}
+{{ pg.acoes([(url_for('index'), '←', 'Voltar para a lista', 'Abre a lista de produtores')]) }}
 
 <div class="card">
   <div class="section-title">Produtores com ficha incompleta</div>

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Manejo reprodutivo - Técnico{% endblock %}
+{% block manifest %}<link rel="manifest" href="{{ manifest_url }}">{% endblock %}
+{% block sidebar %}{% endblock %}
+{% block rodape %}{% endblock %}
+{% block body_class %}tela-manejo{% endblock %}
+
+{% block content %}
+{% set titulo = 'Manejo reprodutivo' %}
+{% set contador = (tecnico.nome or '')|title %}
+{% set sem_voltar = True %}
+{% include "_manejo_mobile.html" %}
+<style>
+  .tc { max-width:520px; margin:0 auto; }
+  .tc h1 { margin:0 0 4px; font-size:1.4rem; color:var(--verde-escuro); }
+  .tc p.sub { margin:0 0 14px; color:var(--cinza); font-size:.92rem; }
+  .tc input[type=text] { font-size:1.5rem; font-weight:700; letter-spacing:.04em; text-align:center; padding:16px 10px; min-height:60px; }
+  .tc .btn-grande { width:100%; padding:16px; font-size:1.05rem; margin-top:12px; }
+  .tc-item { display:block; background:#fff; border:1px solid var(--borda); border-left:5px solid var(--verde); border-radius:6px; padding:12px 14px; margin-bottom:8px; text-decoration:none; color:var(--tinta); }
+  .tc-item b { display:block; color:var(--verde-escuro); font-size:1.02rem; }
+  .tc-item span { font-size:.84rem; color:var(--cinza); }
+</style>
+<div class="tc">
+  <div class="desktop-only" style="margin-bottom:10px;"><h1>Manejo reprodutivo</h1></div>
+  <div class="card">
+    <h1>Qual é o produtor?</h1>
+    <p class="sub">Olá, {{ (tecnico.nome or '')|title }}. Digite o CPF do produtor para cadastrar o manejo dos animais dele.</p>
+    {% if erro_cpf %}<div class="flash error" style="margin-bottom:12px;">{{ erro_cpf }}</div>{% endif %}
+    <form method="post" autocomplete="off">
+      <input type="text" name="cpf" id="cpf" value="{{ cpf }}" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" autofocus>
+      <button type="submit" class="btn btn-primary btn-grande">Abrir produtor →</button>
+    </form>
+  </div>
+
+  {% if escolha %}
+  <div class="card">
+    <h1 style="font-size:1.1rem;">Mais de um produtor com esse CPF — escolha:</h1>
+    {% for p in escolha %}
+      <a class="tc-item" href="{{ url_for('tecnico_produtor', token=token, pid=p.id) }}">
+        <b>{{ (p.nome_produtor or '-')|title }}</b>
+        <span>{{ (p.nome_propriedade or '')|title }}{% if p.municipio %} · {{ p.municipio|upper }}{% endif %}</span>
+      </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card" id="recentes" hidden>
+    <h1 style="font-size:1.1rem;">Últimos produtores</h1>
+    <div id="lista-recentes"></div>
+  </div>
+</div>
+<script>
+(function () {
+  var c = document.getElementById('cpf');
+  c.addEventListener('input', function () {
+    var d = c.value.replace(/\D/g, '').slice(0, 11), o = d;
+    if (d.length > 9) o = d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9);
+    else if (d.length > 6) o = d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6);
+    else if (d.length > 3) o = d.slice(0, 3) + '.' + d.slice(3);
+    c.value = o;
+  });
+  try {
+    var l = JSON.parse(localStorage.getItem('fats-tec-recentes') || '[]'), box = document.getElementById('lista-recentes');
+    var base = {{ url_for('tecnico_home', token=token)|tojson }};
+    l = l.filter(function (x) { return x.url && x.url.indexOf(base) === 0; });
+    if (l.length) {
+      document.getElementById('recentes').hidden = false;
+      l.forEach(function (x) {
+        var a = document.createElement('a'); a.className = 'tc-item'; a.href = x.url;
+        var b = document.createElement('b'); b.textContent = x.nome || 'Produtor';
+        var s = document.createElement('span'); s.textContent = x.prop || '';
+        a.appendChild(b); a.appendChild(s); box.appendChild(a);
+      });
+    }
+  } catch (e) {}
+})();
+</script>
+{% endblock %}

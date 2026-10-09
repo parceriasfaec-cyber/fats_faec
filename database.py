@@ -141,6 +141,10 @@ CREATE TABLE IF NOT EXISTS "FIV".animais (
     brinco_faec TEXT,      -- numero sequencial do brinco FAEC (ex: "0001")
     brinco_fazenda TEXT,   -- identificacao do brinco na fazenda (ex: "V 1452")
     peso TEXT,             -- peso do animal em kg (ex: "320,5")
+    grau_sangue TEXT,      -- ex: "HO 75% GL 25%"
+    pai TEXT,              -- nome do touro pai (ex: "STORMY-ET")
+    brinco_mae TEXT,       -- brinco da mae (ex: "D187")
+    data_nascimento TEXT,  -- dd/mm/aaaa
 
     foto_1 TEXT,
     foto_2 TEXT,
@@ -159,6 +163,12 @@ CREATE TABLE IF NOT EXISTS "FIV".animais (
 
 CREATE INDEX IF NOT EXISTS idx_animais_produtor ON "FIV".animais(produtor_id);
 CREATE INDEX IF NOT EXISTS idx_animais_status ON "FIV".animais(status);
+
+-- Dados individuais do animal (ficha): grau de sangue, pai, mae e nascimento.
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS grau_sangue TEXT;
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS pai TEXT;
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS brinco_mae TEXT;
+ALTER TABLE "FIV".animais ADD COLUMN IF NOT EXISTS data_nascimento TEXT;
 
 -- Historico de visitas de cada produtor. Um mesmo produtor pode ter varias
 -- visitas ao longo do tempo, cada uma com um motivo diferente (cadastro,
@@ -278,6 +288,19 @@ ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS del_dias INTEGER;
 ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS aptidao TEXT;
 ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS token_acesso TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_produtores_token ON "FIV".produtores(token_acesso);
+
+-- Tecnicos: cada um tem um link pessoal (/t/<codigo>) para cadastrar manejo dos
+-- produtores, e cada registro guarda quem o fez.
+CREATE TABLE IF NOT EXISTS "FIV".tecnicos (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    nome TEXT NOT NULL,
+    telefone TEXT,
+    token_acesso TEXT,
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tecnicos_token ON "FIV".tecnicos(token_acesso);
+ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS registrado_por TEXT;
 """
 
 

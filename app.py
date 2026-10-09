@@ -1232,9 +1232,12 @@ def sincronizar():
             ).fetchone()
             if not duplicado:
                 conn.execute(
-                    "INSERT INTO animais (brinco_faec, brinco_fazenda, peso, status) "
-                    "VALUES (?, ?, ?, 'disponivel')",
-                    (animal["brinco_faec"], animal["brinco_fazenda"], animal["peso"]),
+                    "INSERT INTO animais (brinco_faec, brinco_fazenda, peso, grau_sangue, pai, "
+                    "brinco_mae, data_nascimento, status) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, 'disponivel')",
+                    (animal["brinco_faec"], animal["brinco_fazenda"], animal["peso"],
+                     animal.get("grau_sangue"), animal.get("pai"), animal.get("brinco_mae"),
+                     animal.get("data_nascimento")),
                 )
                 conn.commit()
             conn.close()
@@ -1393,6 +1396,33 @@ def desvincular_animal(aid):
     return redirect(_url_lista_produtores())
 
 
+CAMPOS_FICHA_ANIMAL = ("grau_sangue", "pai", "brinco_mae", "data_nascimento")
+
+
+def _ler_ficha_animal(form):
+    """Lê do formulário os dados individuais do animal (grau de sangue, pai,
+    brinco da mãe, nascimento). Devolve (dados, erro). Pai e brinco da mãe
+    são gravados em maiúsculas; a data precisa ser dd/mm/aaaa válida."""
+    dados = {}
+    for c in ("grau_sangue", "pai", "brinco_mae"):
+        dados[c] = " ".join((form.get(c) or "").split()).upper() or None
+    texto = (form.get("data_nascimento") or "").strip()
+    dados["data_nascimento"] = None
+    erro = None
+    if texto:
+        digitos = re.sub(r"\D", "", texto)
+        if len(digitos) == 8:
+            texto = f"{digitos[:2]}/{digitos[2:4]}/{digitos[4:]}"
+        try:
+            nasc = datetime.strptime(texto, "%d/%m/%Y")
+            if nasc > datetime.now() or nasc.year < 1990:
+                raise ValueError
+            dados["data_nascimento"] = texto
+        except ValueError:
+            erro = "Data de nascimento inválida. Use dd/mm/aaaa."
+    return dados, erro
+
+
 @app.route("/animais/novo", methods=["GET", "POST"])
 def novo_animal():
     """Cadastra um animal novo (antes disso, so era possivel cadastrar
@@ -1401,21 +1431,28 @@ def novo_animal():
         brinco_faec = (request.form.get("brinco_faec") or "").strip()
         brinco_fazenda = (request.form.get("brinco_fazenda") or "").strip()
         peso = (request.form.get("peso") or "").strip()
+        ficha, erro_ficha = _ler_ficha_animal(request.form)
 
-        if not brinco_faec:
-            flash("Informe o Brinco FAEC do animal.", "error")
+        if not brinco_faec or erro_ficha:
+            flash(erro_ficha or "Informe o Brinco FAEC do animal.", "error")
             return render_template("novo_animal.html", animal={
                 "brinco_faec": brinco_faec,
                 "brinco_fazenda": brinco_fazenda,
                 "peso": peso,
+                "grau_sangue": request.form.get("grau_sangue", ""),
+                "pai": request.form.get("pai", ""),
+                "brinco_mae": request.form.get("brinco_mae", ""),
+                "data_nascimento": request.form.get("data_nascimento", ""),
             })
 
         try:
             conn = get_connection()
             novo = conn.execute(
-                "INSERT INTO animais (brinco_faec, brinco_fazenda, peso, status) "
-                "VALUES (?, ?, ?, 'disponivel') RETURNING id",
-                (brinco_faec, brinco_fazenda or None, peso or None),
+                "INSERT INTO animais (brinco_faec, brinco_fazenda, peso, grau_sangue, pai, "
+                "brinco_mae, data_nascimento, status) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, 'disponivel') RETURNING id",
+                (brinco_faec, brinco_fazenda or None, peso or None, ficha["grau_sangue"],
+                 ficha["pai"], ficha["brinco_mae"], ficha["data_nascimento"]),
             ).fetchone()
             conn.commit()
             conn.close()
@@ -1424,7 +1461,7 @@ def novo_animal():
         except Exception as erro:
             if not _erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
                 raise
-            adicionar_animal_na_fila(brinco_faec, brinco_fazenda, peso)
+            adicionar_animal_na_fila(brinco_faec, brinco_fazenda, peso, extras=ficha)
             flash("Sem internet: animal guardado na fila para sincronizar depois.", "aviso")
             return redirect(url_for("fila"))
 
@@ -1470,6 +1507,14 @@ def fotos_animal(aid):
         brinco_fazenda = request.form.get("brinco_fazenda", "").strip()
         if brinco_fazenda != (animal["brinco_fazenda"] or ""):
             campos_para_salvar["brinco_fazenda"] = brinco_fazenda or None
+        ficha, erro_ficha = _ler_ficha_animal(request.form)
+        if erro_ficha:
+            flash(erro_ficha, "error")
+            conn.close()
+            return redirect(url_for("fotos_animal", aid=aid))
+        for c in CAMPOS_FICHA_ANIMAL:
+            if ficha[c] != (animal[c] or None):
+                campos_para_salvar[c] = ficha[c]
 
         if campos_para_salvar:
             set_clause = ", ".join(f"{c} = ?" for c in campos_para_salvar)
@@ -1711,9 +1756,10 @@ def animais():
     if busca:
         like = f"%{busca}%"
         where_sql = (
-            "WHERE a.brinco_faec ILIKE ? OR a.brinco_fazenda ILIKE ? OR p.nome_produtor ILIKE ?"
+            "WHERE a.brinco_faec ILIKE ? OR a.brinco_fazenda ILIKE ? OR p.nome_produtor ILIKE ? "
+            "OR a.pai ILIKE ? OR a.brinco_mae ILIKE ? OR p.municipio ILIKE ?"
         )
-        params_busca = (like, like, like)
+        params_busca = (like, like, like, like, like, like)
     base_from = "FROM animais a LEFT JOIN produtores p ON p.id = a.produtor_id"
     total_filtrado = conn.execute(
         f"SELECT COUNT(*) AS n {base_from} {where_sql}", params_busca
@@ -1722,7 +1768,7 @@ def animais():
     pagina = min(pagina, total_paginas)
     inicio = (pagina - 1) * por_pagina
     rows = conn.execute(
-        f"SELECT a.*, p.nome_produtor {base_from} {where_sql} "
+        f"SELECT a.*, p.nome_produtor, p.municipio {base_from} {where_sql} "
         f"ORDER BY a.brinco_faec LIMIT ? OFFSET ?",
         params_busca + (por_pagina, inicio),
     ).fetchall()
@@ -1926,6 +1972,9 @@ registrar_importacao(app, get_connection, _formatar_cpf, _formatar_telefone, _er
 # ---- Importação de alocações de animais por planilha ----
 from importar_alocacoes import registrar_importacao_alocacoes
 registrar_importacao_alocacoes(app, get_connection, _erro_de_conexao, LIMITE_ANIMAIS_POR_PRODUTOR)
+
+from importar_dados_animais import registrar_importacao_dados_animais
+registrar_importacao_dados_animais(app, get_connection, _erro_de_conexao)
 
 # ---- Painel de entrada (página inicial com os números) ----
 from painel_inicial import registrar_painel

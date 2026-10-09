@@ -1,30 +1,15 @@
 {% extends "base.html" %}
 {% import "_paginacao.html" as pag %}
+{% import "_pg.html" as pg %}
 {% block title %}Painel de Visitas - FATS{% endblock %}
 {% block content %}
 
-<div class="toolbar">
-  <h2 style="margin:0; color: var(--verde-escuro);">Painel de Visitas</h2>
-  <span style="display:flex; gap:8px; flex-wrap:wrap;">
-    <a href="{{ url_for('visita_grupo') }}" class="btn btn-primary">👥 Registrar visita em grupo</a>
-    <a href="{{ url_for('mapa') }}" class="btn btn-secondary">🗺️ Ver no mapa</a>
-  </span>
-</div>
-
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:20px;">
-  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Total de Produtores</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde-escuro);">{{ total_geral }}</div>
-  </div>
-  <div class="card card-stat" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Visitados</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:var(--verde);">{{ total_visitados }}</div>
-  </div>
-  <div class="card card-stat acento-terra" style="text-align:center; margin-bottom:0;">
-    <div style="font-size:0.78rem; color:var(--cinza); text-transform:uppercase; letter-spacing:0.02em;">Pendentes</div>
-    <div style="font-family:var(--fonte-titulo); font-size:2.2rem; font-weight:700; color:#a8571e;">{{ total_geral - total_visitados }}</div>
-  </div>
-</div>
+{{ pg.hero('Painel de Visitas', 'Acompanhamento das visitas aos produtores', 'visitas',
+   [(total_geral, 'Produtores'), (total_visitados, 'Visitados'), (total_geral - total_visitados, 'Pendentes', 'terra')]) }}
+{{ pg.acoes([
+  (url_for('visita_grupo'), '👥', 'Registrar visita em grupo', 'Lança a mesma visita para vários produtores'),
+  (url_for('mapa'), '🗺️', 'Ver no mapa', 'Mostra os produtores e as visitas no mapa')
+]) }}
 
 <div class="card" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
   <form method="get" style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
