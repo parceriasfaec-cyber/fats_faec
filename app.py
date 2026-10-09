@@ -1936,6 +1936,10 @@ registrar_painel(app, get_connection, _campos_faltando, _ultimas_visitas_da_etap
 from visitas_grupo import registrar_visitas_grupo
 registrar_visitas_grupo(app, get_connection, _erro_de_conexao)
 
+# ---- Manejo reprodutivo (IATF / TETF: DG, sexagem, doadora, touro) ----
+from manejo_reprodutivo import registrar_manejo_reprodutivo
+registrar_manejo_reprodutivo(app, get_connection, _erro_de_conexao)
+
 
 if __name__ == "__main__":
     try:

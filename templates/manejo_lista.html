@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Manejo reprodutivo - Registros - FATS{% endblock %}
+{% block body_class %}tela-manejo tela-manejo-lista{% endblock %}
+{% block content %}
+{% set titulo = 'Registros de manejo' %}
+{% set contador = registrados_hoje ~ ' hoje' %}
+{% include "_manejo_mobile.html" %}
+
+<style>
+  .ml-sit { display:inline-block; padding:3px 10px; border-radius:12px; font-size:0.78rem; font-weight:600; white-space:nowrap; border:1px solid var(--borda); background:#ece7d9; color:var(--cinza); }
+  .ml-sit.ok { background:var(--verde-claro); color:var(--verde-escuro); border-color:var(--verde); }
+  .ml-sit.erro { background:var(--erro-bg); color:var(--erro); border-color:var(--erro); }
+  .ml-sit.aviso { background:var(--aviso-bg); color:var(--aviso); border-color:var(--aviso); }
+  .ml-tipo { font-weight:700; font-size:0.78rem; color:var(--terra); }
+  .ml-sub { display:block; font-size:0.78rem; color:var(--cinza); font-weight:400; }
+
+  .ml-cards { display:none; }
+  .ml-card { background:#fff; border:1px solid var(--borda); border-left:5px solid var(--borda); border-radius:6px; padding:12px 14px; margin-bottom:10px; }
+  .ml-card.erro { border-left-color:var(--erro); } .ml-card.aviso { border-left-color:var(--aviso); }
+  .ml-card.ok { border-left-color:var(--verde); }
+  .ml-card .l1 { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .ml-card .brinco { font-family:var(--fonte-titulo); font-size:1.35rem; font-weight:700; color:var(--verde-escuro); line-height:1.1; text-decoration:none; }
+  .ml-card .prod { font-size:0.85rem; color:var(--cinza); margin-top:2px; }
+  .ml-card .datas { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:10px 0; text-align:center; background:#faf5e8; border:1px solid var(--borda); border-radius:4px; padding:8px 4px; }
+  .ml-card .datas small { display:block; font-size:0.66rem; text-transform:uppercase; color:var(--cinza); letter-spacing:.04em; }
+  .ml-card .datas b { font-size:0.9rem; color:var(--tinta); }
+  .ml-card .datas i { display:block; font-style:normal; font-size:0.68rem; color:var(--terra); font-weight:700; }
+  .ml-card .acoes { display:flex; gap:8px; }
+  .ml-card .acoes .btn { flex:1; text-align:center; padding:12px 8px; font-size:0.92rem; }
+  .ml-fab { display:none; }
+  @media (max-width:900px) {
+    .tabela-scroll, .ml-desktop-nota { display:none; }
+    .ml-cards { display:block; }
+    .filtros-row select, .filtros-row input[type=search], .filtros-row .btn { font-size:16px; min-height:46px; width:100%; flex:1 1 100%; }
+    .card:has(.filtros-row) { padding:12px; background:transparent; border:none; }
+    .ml-fab { display:flex; align-items:center; justify-content:center; position:fixed; right:16px; bottom:calc(18px + env(safe-area-inset-bottom)); z-index:40;
+              background:var(--terra); color:#fff; border-radius:30px; padding:0 22px; height:54px; font-weight:700; text-decoration:none; font-size:1rem; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+  }
+</style>
+
+<div class="page-header desktop-only">
+  <div>
+    <h1>Manejo reprodutivo</h1>
+    <p class="subtitulo">Registros de IATF / TETF e acompanhamento dos diagnósticos de gestação · {{ registrados_hoje }} registrado(s) hoje</p>
+  </div>
+  <a href="{{ url_for('manejo_novo') }}" class="btn btn-primary">+ Novo registro</a>
+</div>
+
+<div class="card">
+  <form method="get" class="filtros-row">
+    <input type="search" name="q" value="{{ busca }}" placeholder="Brinco, produtor, touro ou doadora" style="flex:1 1 220px;">
+    <select name="tipo">
+      <option value="">IATF e TETF</option>
+      <option value="IATF" {{ 'selected' if tipo == 'IATF' else '' }}>Só IATF</option>
+      <option value="TETF" {{ 'selected' if tipo == 'TETF' else '' }}>Só TETF</option>
+    </select>
+    <select name="filtro">
+      <option value="">Todas as situações</option>
+      <option value="dg1" {{ 'selected' if filtro == 'dg1' else '' }}>Aguardando DG1</option>
+      <option value="dg2" {{ 'selected' if filtro == 'dg2' else '' }}>Aguardando DG2</option>
+      <option value="prenhes" {{ 'selected' if filtro == 'prenhes' else '' }}>Prenhes</option>
+      <option value="vazias" {{ 'selected' if filtro == 'vazias' else '' }}>Vazias / perdas</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Filtrar</button>
+    {% if busca or tipo or filtro %}<a href="{{ url_for('manejo_lista') }}" class="btn btn-ghost">Limpar</a>{% endif %}
+  </form>
+
+  {% if registros %}
+  <div class="tabela-scroll">
+    <table class="list">
+      <thead>
+        <tr>
+          <th class="col-principal">Matriz</th>
+          <th>Produtor</th>
+          <th>Manejo</th>
+          <th>DG1</th>
+          <th>DG2</th>
+          <th>Parto</th>
+          <th>Situação</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in registros %}
+        <tr>
+          <td class="col-principal nowrap">
+            <a class="link-produtor" href="{{ url_for('manejo_editar', rid=r.id) }}">{{ r.brinco or '-' }}</a>
+            {% if r.touro_nome %}<span class="ml-sub">{{ r.touro_nome }}</span>{% endif %}
+          </td>
+          <td>{{ r.nome_produtor or '-' }}{% if r.municipio %}<span class="ml-sub">{{ r.municipio|upper }}</span>{% endif %}</td>
+          <td class="nowrap"><span class="ml-tipo">{{ r.tipo_manejo }}</span><span class="ml-sub">{{ r.data_procedimento.strftime('%d/%m/%Y') if r.data_procedimento else '-' }}</span></td>
+          <td class="nowrap">{{ r.prev.dg1.strftime('%d/%m/%y') if r.prev.dg1 else '-' }}{% if r.dg1_resultado %}<span class="ml-sub">{{ r.dg1_resultado }}</span>{% endif %}</td>
+          <td class="nowrap">{{ r.prev.dg2.strftime('%d/%m/%y') if r.prev.dg2 else '-' }}{% if r.dg2_resultado %}<span class="ml-sub">{{ r.dg2_resultado }}{% if r.sexagem %} · {{ r.sexagem }}{% endif %}</span>{% endif %}</td>
+          <td class="nowrap">{{ r.prev.parto.strftime('%d/%m/%Y') if r.prev.parto else '-' }}</td>
+          <td><span class="ml-sit {{ r.sit_classe }}">{{ r.sit_texto }}</span></td>
+          <td class="actions">
+            <a href="{{ url_for('manejo_editar', rid=r.id) }}" class="btn btn-ghost btn-sm">Editar</a>
+            <form method="post" action="{{ url_for('manejo_excluir', rid=r.id) }}"
+                  onsubmit="return confirm('Excluir o registro da matriz {{ (r.brinco or '')|e }}?');">
+              <button type="submit" class="btn btn-danger-ghost btn-sm">Excluir</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="ml-cards">
+    {% for r in registros %}
+    <div class="ml-card {{ r.sit_classe }}">
+      <div class="l1">
+        <div>
+          <a class="brinco" href="{{ url_for('manejo_editar', rid=r.id) }}">{{ r.brinco or '-' }}</a>
+          <div class="prod">{{ r.nome_produtor or 'sem produtor' }}{% if r.municipio %} · {{ r.municipio|upper }}{% endif %}</div>
+        </div>
+        <span class="ml-sit {{ r.sit_classe }}">{{ r.sit_texto }}</span>
+      </div>
+      <div class="prod" style="margin-top:6px;"><span class="ml-tipo">{{ r.tipo_manejo }}</span> em {{ r.data_procedimento.strftime('%d/%m/%Y') if r.data_procedimento else '-' }}{% if r.touro_nome %} · {{ r.touro_nome }}{% endif %}</div>
+      <div class="datas">
+        <div><small>DG1</small><b>{{ r.prev.dg1.strftime('%d/%m') if r.prev.dg1 else '-' }}</b>{% if r.dg1_resultado %}<i>{{ r.dg1_resultado }}</i>{% endif %}</div>
+        <div><small>DG2</small><b>{{ r.prev.dg2.strftime('%d/%m') if r.prev.dg2 else '-' }}</b>{% if r.dg2_resultado %}<i>{{ r.dg2_resultado }}</i>{% endif %}</div>
+        <div><small>Parto</small><b>{{ r.prev.parto.strftime('%d/%m/%y') if r.prev.parto else '-' }}</b>{% if r.sexagem %}<i>{{ r.sexagem }}</i>{% endif %}</div>
+      </div>
+      <div class="acoes">
+        <a href="{{ url_for('manejo_editar', rid=r.id) }}" class="btn btn-primary">Abrir / lançar DG</a>
+        <form method="post" action="{{ url_for('manejo_excluir', rid=r.id) }}" style="flex:0 0 auto;"
+              onsubmit="return confirm('Excluir o registro da matriz {{ (r.brinco or '')|e }}?');">
+          <button type="submit" class="btn btn-danger-ghost" style="padding:12px 14px;">Excluir</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% if cortado %}
+    <p style="margin:12px 0 0; color:var(--cinza); font-size:0.85rem;">Mostrando os {{ max_lista }} registros mais recentes. Use a busca ou os filtros para ver os demais.</p>
+  {% endif %}
+  {% else %}
+    <p class="empty">Nenhum registro encontrado.</p>
+  {% endif %}
+</div>
+<a href="{{ url_for('manejo_novo') }}" class="ml-fab">+ Novo registro</a>
+{% endblock %}

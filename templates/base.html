@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2b2015">
+<link rel="manifest" href="{{ url_for('manifest_pwa') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='icone-192.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icone-192.png') }}">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="FATS">
 <title>{% block title %}FATS - Matrizes do Amanhã / FIV Ceará{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -351,7 +358,7 @@
   }
 </style>
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 <div class="app-shell">
   <aside class="sidebar">
     <div class="marca">
@@ -379,6 +386,9 @@
       </a>
       <a href="{{ url_for('painel_visitas') }}" class="{{ 'ativo' if request.endpoint in ('painel_visitas', 'visitas_produtor') else '' }}">
         <span class="icone">📋</span> Visitas
+      </a>
+      <a href="{{ url_for('manejo_lista') }}" class="{{ 'ativo' if request.endpoint in ('manejo_lista', 'manejo_novo', 'manejo_editar') else '' }}">
+        <span class="icone">🧬</span> Manejo
       </a>
       <a href="{{ url_for('relatorio') }}" class="{{ 'ativo' if request.endpoint == 'relatorio' else '' }}">
         <span class="icone">📊</span> Relatório

@@ -1,0 +1,33 @@
+{# Visual de "app" no celular para as telas de Manejo: esconde o menu lateral,
+   mostra uma barra de topo própria e aumenta os campos/botões para o toque.
+   Uso: {% include "_manejo_mobile.html" %} (com `titulo` e `contador` definidos). #}
+<style>
+  .mr-appbar { display:none; }
+  @media (max-width: 900px) {
+    .sidebar, .conteudo > footer { display:none !important; }
+    main { margin:0 !important; padding:0 12px 24px !important; max-width:none !important; }
+    .mr-appbar {
+      display:flex; align-items:center; gap:8px;
+      position:sticky; top:0; z-index:30; height:54px;
+      margin:0 -12px 12px; padding:0 12px;
+      background:var(--verde-escuro); color:#fff; border-bottom:3px solid var(--terra);
+    }
+    .mr-appbar a.voltar { color:#d9cdb5; text-decoration:none; font-size:0.85rem; font-weight:600; padding:8px 4px; white-space:nowrap; }
+    .mr-appbar .titulo { flex:1; text-align:center; font-family:var(--fonte-titulo); font-weight:600; font-size:1.05rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .mr-appbar .chip { background:rgba(217,205,181,.16); border:1px solid rgba(217,205,181,.35); color:#fff; border-radius:12px; padding:3px 10px; font-size:0.78rem; font-weight:700; white-space:nowrap; }
+    .desktop-only { display:none !important; }
+    .flash { margin-top:0; font-size:0.95rem; }
+  }
+</style>
+<div class="mr-appbar">
+  <a href="{{ url_for('inicio') }}" class="voltar">‹ Início</a>
+  <span class="titulo">{{ titulo }}</span>
+  <span class="chip" id="chip-hoje">{{ contador }}</span>
+</div>
+
+<div id="fila-aviso" hidden style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:11px 16px;border-radius:3px;margin-bottom:16px;background:var(--aviso-bg);color:var(--aviso);border:1px solid var(--aviso);font-size:.9rem;">
+  <span data-fila-texto></span>
+  <button type="button" id="fila-enviar" class="btn btn-primary btn-sm" style="white-space:nowrap;">Enviar agora</button>
+</div>
+<style>#fila-aviso[hidden]{display:none !important;}</style>
+<script src="{{ url_for('static', filename='manejo_offline.js') }}"></script>

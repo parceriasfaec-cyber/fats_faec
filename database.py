@@ -223,6 +223,52 @@ WHERE NOT EXISTS (
 -- uma tabela "FIV".config com uma etapa global unica), ela nao e mais
 -- usada e pode ser apagada - mas deixar ela existindo tambem nao faz
 -- diferenca nenhuma, entao nao mexemos nela automaticamente aqui.
+
+-- Manejo reprodutivo (IATF / TETF): um registro por procedimento feito numa
+-- matriz. O DG1/DG2 e a sexagem sao lancados depois, editando o registro.
+CREATE TABLE IF NOT EXISTS "FIV".manejo_reprodutivo (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    -- Animal do cadastro (NULL se o brinco digitado nao existir em animais)
+    animal_id BIGINT REFERENCES "FIV".animais(id) ON DELETE SET NULL,
+    brinco TEXT NOT NULL,                 -- brinco como foi digitado no campo
+
+    tipo_manejo TEXT NOT NULL,            -- IATF | TETF
+    data_procedimento DATE NOT NULL,
+
+    dg1_resultado TEXT,                   -- PRENHE | VAZIA | REAVALIAR
+    dg1_obs TEXT,
+    dg2_resultado TEXT,                   -- PRENHE | PERDA | A CONFIRMAR
+    sexagem TEXT,                         -- FEMEA | MACHO | INDETERMINADA
+    dg2_obs TEXT,
+
+    corpo_luteo TEXT,                     -- DIREITO | ESQUERDO | SEM CL
+    ecc TEXT,                             -- 2.0 a 4.5
+
+    doadora_nome TEXT,
+    doadora_raca TEXT,
+    doadora_beta_caseina TEXT,            -- A2A2 | A1A2 | A1A1
+    embriao_codigo TEXT,
+    embriao_data_opu DATE,
+    embriao_grau TEXT,                    -- GRAU 1 | GRAU 2 | GRAU 3
+    embriao_conservacao TEXT,             -- FRESCO | VITRIFICADO
+    embriao_obs TEXT,
+
+    touro_nome TEXT,
+    touro_raca TEXT,
+    touro_central TEXT,
+    semen_tipo TEXT,                      -- SEXADO FEMEA | SEXADO MACHO | CONVENCIONAL
+    botijao TEXT,
+    caneca TEXT,
+    rack TEXT,
+    semen_partida TEXT,
+
+    criado_em TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_manejo_animal ON "FIV".manejo_reprodutivo(animal_id);
+CREATE INDEX IF NOT EXISTS idx_manejo_data ON "FIV".manejo_reprodutivo(data_procedimento);
 """
 
 
