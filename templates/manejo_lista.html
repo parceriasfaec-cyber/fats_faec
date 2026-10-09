@@ -38,17 +38,17 @@
   }
 </style>
 
-<div class="page-header desktop-only">
-  <div>
-    <h1>Manejo reprodutivo</h1>
-    <p class="subtitulo">Registros de IATF / TETF e acompanhamento dos diagnósticos de gestação · {{ registrados_hoje }} registrado(s) hoje</p>
-  </div>
-  <a href="{{ url_for('manejo_novo') }}" class="btn btn-primary">+ Novo registro</a>
+<div class="desktop-only">
+{% import "_pg.html" as pg %}
+{{ pg.hero('Manejo reprodutivo', 'Registros de IATF / TETF e acompanhamento dos diagnósticos de gestação', 'manejo',
+   [(registrados_hoje, 'Registrados hoje')]) }}
+{{ pg.acoes([
+  (url_for('manejo_novo'), '➕', 'Novo registro', 'Lança um IATF ou TETF para um animal'),
+  (url_for('manejo_tecnicos'), '🧑‍🔧', 'Técnicos', 'Cadastra os técnicos e atrela os produtores de cada um')
+]) }}
 </div>
 
 <div class="card">
-  <p style="margin:0 0 12px;"><a href="{{ url_for('manejo_links') }}" class="btn btn-outline-terra btn-sm">🔗 Links dos produtores</a>
-  <a href="{{ url_for('manejo_tecnicos') }}" class="btn btn-outline-terra btn-sm">🧑‍🔧 Técnicos</a></p>
   <form method="get" class="filtros-row">
     <input type="search" name="q" value="{{ busca }}" placeholder="Brinco, produtor, touro ou doadora" style="flex:1 1 220px;">
     <select name="tipo">

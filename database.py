@@ -301,6 +301,10 @@ CREATE TABLE IF NOT EXISTS "FIV".tecnicos (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tecnicos_token ON "FIV".tecnicos(token_acesso);
 ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS registrado_por TEXT;
+ALTER TABLE "FIV".tecnicos ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE "FIV".tecnicos ADD COLUMN IF NOT EXISTS cpf TEXT;
+-- Produtor atrelado a um tecnico: o tecnico so enxerga os produtores dele.
+ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS tecnico_id BIGINT;
 """
 
 

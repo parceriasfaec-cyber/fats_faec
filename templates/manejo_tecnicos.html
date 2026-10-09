@@ -7,69 +7,255 @@
   .lk-link { font-family:ui-monospace,Consolas,monospace; font-size:.78rem; color:var(--cinza); word-break:break-all; }
   .lk-acoes { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
   .lk-sem { color:var(--aviso); font-weight:600; font-size:.85rem; }
-  .tec-off { opacity:.55; }
+  .tec-off { opacity:.6; }
+  .tec-card { border-radius:16px; padding:0; }
+  .tec-card > summary { list-style:none; cursor:pointer; padding:14px 18px; }
+  .tec-card > summary::-webkit-details-marker { display:none; }
+  .tec-card > summary::after { content:'▾'; color:var(--cinza); font-size:1.1rem; align-self:center; transition:transform .15s; }
+  .tec-card[open] > summary::after { transform:rotate(180deg); }
+  .tec-corpo { padding:0 18px 16px; border-top:1px solid var(--borda); }
+  .tec-card[hidden] { display:none; }
+  .tec-filtro { display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:12px 16px; }
+  .tec-filtro input { flex:1 1 260px; min-width:0; width:auto; }
+  .tec-filtro select { flex:0 0 auto; width:auto; }
+  .tec-topo { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+  .tec-url { margin-top:12px; }
+  .tec-avatar { width:46px; height:46px; border-radius:50%; background:var(--verde-escuro); color:#fff; display:flex; align-items:center; justify-content:center; font-family:var(--fonte-titulo); font-size:1.3rem; font-weight:700; flex-shrink:0; }
+  .tec-id { flex:1 1 260px; min-width:0; }
+  .tec-nome { font-family:var(--fonte-titulo); font-size:1.2rem; font-weight:700; color:var(--verde-escuro); display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .tec-badge { font-family:var(--fonte-corpo); font-size:.72rem; font-weight:600; padding:2px 9px; border-radius:999px; background:#f1e9d4; color:var(--cinza); border:1px solid var(--borda); }
+  .tec-badge.ok { background:var(--verde-claro); color:var(--verde); }
+  .tec-badge.off { background:var(--erro-bg); color:var(--erro); }
+  .tec-dados { display:flex; gap:6px 18px; flex-wrap:wrap; margin-top:4px; font-size:.84rem; color:var(--cinza); }
+  .tec-botoes { margin-top:0; justify-content:flex-end; }
+  .tec-url { margin:10px 0 0; padding:6px 10px; background:#faf5e8; border:1px dashed var(--borda); border-radius:8px; }
+  .tec-prods { margin-top:14px; padding-top:12px; border-top:1px solid var(--borda); }
+  .tec-prods-tit { font-weight:600; font-size:.85rem; color:var(--verde-escuro); margin-bottom:8px; }
+  .tec-prods-tit span { background:var(--verde-claro); border-radius:999px; padding:1px 9px; margin-left:4px; }
+  .tec-chips { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:8px; margin-bottom:10px; }
+  .tec-chip { display:flex; align-items:center; justify-content:space-between; gap:6px; background:#fffdf7; border:1px solid var(--borda); border-left:4px solid var(--verde); border-radius:10px; padding:6px 6px 6px 10px; margin:0; font-size:.86rem; font-weight:600; color:var(--tinta); }
+  .tec-chip small { display:block; font-weight:400; color:var(--cinza); font-size:.74rem; }
+  .tec-chip button { border:0; background:transparent; cursor:pointer; font-size:1.2rem; line-height:1; color:var(--erro); width:28px; height:28px; border-radius:50%; flex-shrink:0; }
+  .tec-chip button:hover { background:var(--erro-bg); }
+  .tec-admin { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; margin-top:14px; }
+  .tec-edit[open] { flex:1 1 100%; order:2; }
+  .tec-edit > summary { list-style:none; cursor:pointer; display:inline-block; }
+  .tec-edit > summary::-webkit-details-marker { display:none; }
+  .tec-edit-form { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px; margin-top:8px; padding:10px; border:1px solid var(--borda); border-radius:12px; background:#fffdf7; }
+  .tec-edit-form .btn { grid-column:1 / -1; }
+  .tec-vazio { color:var(--cinza); font-size:.85rem; }
+  .tec-mult > summary { list-style:none; display:inline-block; cursor:pointer; }
+  .tec-mult > summary::-webkit-details-marker { display:none; }
+  .tec-mult-box { margin-top:10px; border:1px solid var(--borda); border-radius:12px; background:#fffdf7; padding:10px; max-width:640px; }
+  .tec-mult-topo { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:8px; }
+  .tec-mult-topo input[type=search] { flex:1 1 220px; min-width:0; width:auto; }
+  .tm-todos { display:flex; gap:6px; align-items:center; font-size:.85rem; font-weight:600; white-space:nowrap; margin:0; }
+  .tm-todos input, .tm-item input { width:auto; margin:0; transform:scale(1.2); }
+  .tm-vis { font-weight:400; color:var(--cinza); }
+  .tm-lista { max-height:300px; overflow:auto; border:1px solid var(--borda); border-radius:8px; background:#fff; }
+  .tm-item { display:flex; gap:10px; align-items:center; padding:7px 10px; border-bottom:1px solid #efe7d4; cursor:pointer; margin:0; font-weight:400; }
+  .tm-item:hover { background:var(--verde-claro); }
+  .tm-item[hidden] { display:none; }
+  .tm-item b { display:block; font-size:.88rem; color:var(--tinta); }
+  .tm-item small { display:block; font-size:.74rem; color:var(--cinza); }
+  .tm-enviar { margin-top:10px; width:100%; }
 </style>
-<div class="lk-topo">
-  <p style="margin:0 0 6px;"><a href="{{ url_for('manejo_links') }}">🔗 Links dos produtores</a> · <a href="{{ url_for('manejo_lista') }}">Registros</a></p>
-  <h1>Técnicos</h1>
-  <p>Cada técnico recebe um link pessoal. Pelo celular ele digita o CPF do produtor e cadastra o manejo dos animais daquele produtor. Cada registro fica com o nome de quem fez.</p>
-</div>
+{% import "_pg.html" as pg %}
+{{ pg.hero('Técnicos', 'Quem registra o manejo pelo celular e quais produtores cada um atende', 'produtores',
+   [(tecnicos|length, 'Técnicos'), (tecnicos|selectattr('ativo')|list|length, 'Ativos'), (produtores|rejectattr('tecnico_id')|list|length, 'Produtores sem técnico', 'terra')]) }}
+{{ pg.acoes([(url_for('manejo_lista'), '←', 'Registros de manejo', 'Volta para a lista de registros do manejo')]) }}
 
 <div class="card">
   <form method="post" action="{{ url_for('manejo_tecnicos_novo') }}" class="filtros-row">
     <input type="text" name="nome" placeholder="Nome do técnico" required style="flex:1 1 220px;">
+    <input type="text" inputmode="email" autocapitalize="off" name="email" placeholder="E-mail" style="flex:1 1 200px;">
+    <input type="text" name="cpf" id="tec-cpf" placeholder="CPF" inputmode="numeric" maxlength="14" style="flex:1 1 140px;">
     <input type="text" name="telefone" placeholder="WhatsApp (com DDD)" inputmode="tel" style="flex:1 1 160px;">
     <button type="submit" class="btn btn-primary">+ Cadastrar técnico</button>
   </form>
   <div style="margin-top:10px;">
-    <label for="base">Endereço do site dos produtores (o mesmo da tela de links)</label>
+    <label for="base">Endereço do site que o técnico abre no celular</label>
     <input type="text" id="base" placeholder="https://fats-produtores.vercel.app">
   </div>
 </div>
 
-<div class="card">
-  <div class="tabela-scroll">
-  <table class="list">
-    <thead><tr><th class="col-principal">Técnico</th><th>Registros</th><th>Link</th></tr></thead>
-    <tbody>
-    {% for t in tecnicos %}
-      <tr class="{{ '' if t.ativo else 'tec-off' }}" data-token="{{ t.token_acesso or '' }}" data-nome="{{ t.nome }}" data-zap="{{ t.whatsapp }}">
-        <td class="col-principal">{{ t.nome|title }}{% if not t.ativo %}<span style="display:block;font-size:.78rem;color:var(--erro);">desativado — o link não abre</span>{% endif %}
-          <span style="display:block;font-size:.78rem;color:var(--cinza);font-weight:400;">{{ t.telefone or 'sem telefone' }}</span></td>
-        <td class="nowrap">{{ t.qtd_registros }}</td>
-        <td>
-          {% if t.token_acesso %}
-            <div class="lk-link" data-url></div>
-          {% endif %}
-          <div class="lk-acoes">
-            {% if t.token_acesso and t.ativo %}
-              <button type="button" class="btn btn-ghost btn-sm" data-copiar>Copiar link</button>
-              {% if t.whatsapp %}<a class="btn btn-primary btn-sm" data-zap-btn target="_blank" rel="noopener">Enviar no WhatsApp</a>{% endif %}
-              <form method="post" action="{{ url_for('manejo_tecnicos_renovar', tid=t.id) }}" style="display:inline;"
-                    onsubmit="return confirm('Gerar um novo link? O link antigo deste técnico vai parar de funcionar.');">
-                <button type="submit" class="btn btn-danger-ghost btn-sm">Gerar novo</button>
-              </form>
-            {% endif %}
-            <form method="post" action="{{ url_for('manejo_tecnicos_ativar', tid=t.id) }}" style="display:inline;">
-              <button type="submit" class="btn btn-ghost btn-sm">{{ 'Desativar' if t.ativo else 'Reativar' }}</button>
-            </form>
-          </div>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  </div>
-  {% if not tecnicos %}<p class="empty">Nenhum técnico cadastrado ainda.</p>{% endif %}
+{% if tecnicos|length > 1 %}
+<div class="card tec-filtro">
+  <input type="search" id="tec-busca" placeholder="Buscar técnico, e-mail, CPF ou produtor…" autocomplete="off">
+  <select id="tec-filtro">
+    <option value="">Todos</option>
+    <option value="ativos">Só ativos</option>
+    <option value="sem">Sem produtores atrelados</option>
+  </select>
+  <button type="button" class="btn btn-ghost" id="tec-abrir">Abrir todos</button>
+  <span id="tec-cont" class="tec-vazio"></span>
 </div>
+{% endif %}
+{% for t in tecnicos %}
+<details class="card tec-card {{ '' if t.ativo else 'tec-off' }}" data-busca="{{ (t.nome ~ ' ' ~ (t.email or '') ~ ' ' ~ (t.cpf or '') ~ ' ' ~ (t.produtores|map(attribute='nome_produtor')|join(' '))) | lower }}" data-sem="{{ '1' if not t.produtores else '' }}" data-ativo="{{ '1' if t.ativo else '' }}" data-token="{{ t.token_acesso or '' }}" data-nome="{{ t.nome }}" data-zap="{{ t.whatsapp }}">
+  <summary class="tec-topo">
+    <div class="tec-avatar">{{ (t.nome or '?')[:1]|upper }}</div>
+    <div class="tec-id">
+      <div class="tec-nome">{{ t.nome|title }}
+        {% if t.ativo %}<span class="tec-badge ok">Ativo</span>{% else %}<span class="tec-badge off">Desativado — o link não abre</span>{% endif %}
+        <span class="tec-badge">{{ t.produtores|length }} produtor{{ '' if t.produtores|length == 1 else 'es' }}</span>
+        <span class="tec-badge">{{ t.qtd_registros }} registro{{ '' if t.qtd_registros == 1 else 's' }}</span>
+      </div>
+      <div class="tec-dados">
+        <span>✉ {{ t.email or 'sem e-mail' }}</span>
+        <span>🪪 {{ t.cpf_fmt or 'sem CPF' }}</span>
+        <span>📱 {{ t.telefone or 'sem telefone' }}</span>
+      </div>
+    </div>
+    <div class="lk-acoes tec-botoes">
+      {% if t.token_acesso and t.ativo %}
+        <button type="button" class="btn btn-ghost btn-sm" data-copiar>Copiar link</button>
+        {% if t.whatsapp %}<a class="btn btn-primary btn-sm" data-zap-btn target="_blank" rel="noopener">WhatsApp</a>{% endif %}
+        <form method="post" action="{{ url_for('manejo_tecnicos_renovar', tid=t.id) }}" style="display:inline;"
+              onsubmit="return confirm('Gerar um novo link? O link antigo deste técnico vai parar de funcionar.');">
+          <button type="submit" class="btn btn-danger-ghost btn-sm">Gerar novo</button>
+        </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('manejo_tecnicos_ativar', tid=t.id) }}" style="display:inline;">
+        <button type="submit" class="btn btn-ghost btn-sm">{{ 'Desativar' if t.ativo else 'Reativar' }}</button>
+      </form>
+      <button type="button" class="btn btn-outline-terra an-ico" data-editar title="Editar dados do técnico" aria-label="Editar">✏️</button>
+      <form method="post" action="{{ url_for('manejo_tecnicos_excluir', tid=t.id) }}" style="display:inline;"
+            onsubmit="return confirm('Excluir o técnico {{ t.nome|title }}? Os {{ t.produtores|length }} produtores dele ficam livres e o link dele para de funcionar. Os registros que ele já fez são mantidos.');">
+        <button type="submit" class="btn btn-danger-ghost an-ico" title="Excluir técnico" aria-label="Excluir">🗑</button>
+      </form>
+    </div>
+  </summary>
+  <div class="tec-corpo">
+  {% if t.token_acesso %}<div class="lk-link tec-url" data-url></div>{% endif %}
+
+  <div class="tec-admin">
+    <details class="tec-edit">
+      <summary class="btn btn-secondary btn-sm">✏️ Editar dados</summary>
+      <form method="post" action="{{ url_for('manejo_tecnicos_editar', tid=t.id) }}" class="tec-edit-form">
+        <input type="text" name="nome" value="{{ t.nome|title }}" placeholder="Nome" required>
+        <input type="text" inputmode="email" autocapitalize="off" name="email" value="{{ t.email or '' }}" placeholder="E-mail">
+        <input type="text" name="cpf" value="{{ t.cpf_fmt or '' }}" placeholder="CPF" inputmode="numeric" maxlength="14">
+        <input type="text" name="telefone" value="{{ t.telefone or '' }}" placeholder="WhatsApp (com DDD)" inputmode="tel">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+      </form>
+    </details>
+  </div>
+
+  <div class="tec-prods">
+    <div class="tec-prods-tit">Produtores atrelados <span>{{ t.produtores|length }}</span></div>
+    <div class="tec-chips">
+      {% for p in t.produtores %}
+        <form method="post" action="{{ url_for('manejo_tecnicos_desatrelar', tid=t.id, pid=p.id) }}" class="tec-chip">
+          <span>{{ (p.nome_produtor or '-')|title }}{% if p.nome_propriedade %}<small>{{ p.nome_propriedade|title }}</small>{% endif %}</span>
+          <button type="submit" title="Retirar este produtor do técnico" aria-label="Retirar {{ p.nome_produtor }}">×</button>
+        </form>
+      {% else %}
+        <span class="tec-vazio">Nenhum produtor atrelado ainda.</span>
+      {% endfor %}
+    </div>
+    <details class="tec-mult">
+      <summary class="btn btn-primary">+ Atrelar produtores</summary>
+      <form method="post" action="{{ url_for('manejo_tecnicos_atrelar', tid=t.id) }}" class="tec-mult-box">
+        <div class="tec-mult-topo">
+          <input type="search" class="tm-busca" placeholder="Buscar produtor ou município…" autocomplete="off">
+          <label class="tm-todos"><input type="checkbox" class="tm-todos-cb"> Selecionar todos <span class="tm-vis"></span></label>
+        </div>
+        <div class="tm-lista">
+          {% for p in produtores if not p.tecnico_id %}
+            <label class="tm-item" data-b="{{ ((p.nome_produtor or '') ~ ' ' ~ (p.municipio or '') ~ ' ' ~ (p.nome_propriedade or ''))|lower }}">
+              <input type="checkbox" name="produtor_id" value="{{ p.id }}">
+              <span><b>{{ (p.nome_produtor or '-')|title }}</b><small>{{ (p.nome_propriedade or '')|title }}{% if p.municipio %} · {{ p.municipio|title }}{% endif %}</small></span>
+            </label>
+          {% else %}
+            <p class="tec-vazio" style="padding:8px;">Todos os produtores já estão atrelados a algum técnico.</p>
+          {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary tm-enviar" disabled>Atrelar selecionados (0)</button>
+      </form>
+    </details>
+  </div>
+  </div>
+</details>
+{% endfor %}
+{% if not tecnicos %}<div class="card"><p class="empty">Nenhum técnico cadastrado ainda.</p></div>{% endif %}
 
 <script>
+(function () {
+  var c = document.getElementById('tec-cpf');
+  if (c) c.addEventListener('input', function () {
+    var d = c.value.replace(/\D/g, '').slice(0, 11), o = d;
+    if (d.length > 9) o = d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9);
+    else if (d.length > 6) o = d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6);
+    else if (d.length > 3) o = d.slice(0, 3) + '.' + d.slice(3);
+    c.value = o;
+  });
+})();
+(function () {
+  var busca = document.getElementById('tec-busca'), filtro = document.getElementById('tec-filtro'),
+      abrir = document.getElementById('tec-abrir'), cont = document.getElementById('tec-cont');
+  var cards = [].slice.call(document.querySelectorAll('.tec-card'));
+  function norm(t) { return (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+  function filtrar() {
+    var q = norm(busca ? busca.value : ''), f = filtro ? filtro.value : '', n = 0;
+    cards.forEach(function (c) {
+      var ok = (!q || norm(c.dataset.busca).indexOf(q) >= 0) && (f !== 'ativos' || c.dataset.ativo) && (f !== 'sem' || c.dataset.sem);
+      c.hidden = !ok; if (ok) n++;
+    });
+    if (cont) cont.textContent = n + ' de ' + cards.length + ' técnicos';
+    if (q) cards.forEach(function (c) { if (!c.hidden) c.open = true; });
+  }
+  if (busca) { busca.addEventListener('input', filtrar); filtro.addEventListener('change', filtrar); filtrar(); }
+  if (abrir) abrir.addEventListener('click', function () {
+    var abrirTodos = abrir.dataset.on !== '1';
+    cards.forEach(function (c) { if (!c.hidden) c.open = abrirTodos; });
+    abrir.dataset.on = abrirTodos ? '1' : ''; abrir.textContent = abrirTodos ? 'Fechar todos' : 'Abrir todos';
+  });
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-editar]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var card = b.closest('.tec-card'); card.open = true;
+    var ed = card.querySelector('.tec-edit'); ed.open = true;
+    ed.scrollIntoView({behavior: 'smooth', block: 'center'});
+    var n = ed.querySelector('input[name=nome]'); if (n) n.focus();
+  }, true);
+  // botões dentro do resumo não abrem/fecham o cartão
+  document.querySelectorAll('.tec-card > summary .tec-botoes').forEach(function (b) {
+    b.addEventListener('click', function (e) { e.stopPropagation(); });
+  });
+  // se o cartão tem só 1 técnico, já vem aberto
+  if (cards.length === 1) cards[0].open = true;
+})();
+(function () {
+  document.querySelectorAll('.tec-mult-box').forEach(function (f) {
+    var busca = f.querySelector('.tm-busca'), todos = f.querySelector('.tm-todos-cb'), vis = f.querySelector('.tm-vis'),
+        env = f.querySelector('.tm-enviar'), itens = [].slice.call(f.querySelectorAll('.tm-item'));
+    function norm(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+    function visiveis() { return itens.filter(function (i) { return !i.hidden; }); }
+    function atualizar() {
+      var marc = itens.filter(function (i) { return i.querySelector('input').checked; }).length;
+      env.disabled = !marc; env.textContent = 'Atrelar selecionados (' + marc + ')';
+      var v = visiveis(); vis.textContent = '(' + v.length + ')';
+      todos.checked = v.length > 0 && v.every(function (i) { return i.querySelector('input').checked; });
+    }
+    busca.addEventListener('input', function () {
+      var q = norm(busca.value);
+      itens.forEach(function (i) { i.hidden = q && norm(i.dataset.b).indexOf(q) < 0; });
+      atualizar();
+    });
+    todos.addEventListener('change', function () {
+      visiveis().forEach(function (i) { i.querySelector('input').checked = todos.checked; }); atualizar();
+    });
+    f.addEventListener('change', function (e) { if (e.target.name === 'produtor_id') atualizar(); });
+    atualizar();
+  });
+})();
 (function () {
   var campo = document.getElementById('base'), CHAVE = 'fats-base-produtores';
   try { campo.value = localStorage.getItem(CHAVE) || ''; } catch (e) {}
   function base() { var b = (campo.value || '').trim().replace(/\/+$/, ''); return b || location.origin; }
   function montar() {
-    document.querySelectorAll('tr[data-token]').forEach(function (tr) {
+    document.querySelectorAll('.tec-card[data-token]').forEach(function (tr) {
       var t = tr.dataset.token; if (!t) return;
       var url = base() + '/t/' + t;
       var alvo = tr.querySelector('[data-url]'); if (alvo) alvo.textContent = url;
@@ -85,7 +271,7 @@
   campo.addEventListener('input', function () { try { localStorage.setItem(CHAVE, campo.value.trim()); } catch (e) {} montar(); });
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-copiar]'); if (!b) return;
-    var url = b.closest('tr')._url;
+    var url = b.closest('.tec-card')._url;
     (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () {
       b.textContent = 'Copiado ✔'; setTimeout(function () { b.textContent = 'Copiar link'; }, 1800);
     }, function () { window.prompt('Copie o link:', url); });

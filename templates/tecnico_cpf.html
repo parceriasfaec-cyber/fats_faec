@@ -24,12 +24,24 @@
   <div class="desktop-only" style="margin-bottom:10px;"><h1>Manejo reprodutivo</h1></div>
   <div class="card">
     <h1>Qual é o produtor?</h1>
-    <p class="sub">Olá, {{ (tecnico.nome or '')|title }}. Digite o CPF do produtor para cadastrar o manejo dos animais dele.</p>
+    <p class="sub">Olá, {{ (tecnico.nome or '')|title }}. Escolha um dos seus produtores abaixo, ou digite o CPF para achar mais rápido.</p>
     {% if erro_cpf %}<div class="flash error" style="margin-bottom:12px;">{{ erro_cpf }}</div>{% endif %}
     <form method="post" autocomplete="off">
       <input type="text" name="cpf" id="cpf" value="{{ cpf }}" inputmode="numeric" placeholder="000.000.000-00" maxlength="14" autofocus>
       <button type="submit" class="btn btn-primary btn-grande">Abrir produtor →</button>
     </form>
+  </div>
+
+  <div class="card">
+    <h1 style="font-size:1.1rem;">Seus produtores ({{ meus|length }})</h1>
+    {% for p in meus %}
+      <a class="tc-item" href="{{ url_for('tecnico_produtor', token=token, pid=p.id) }}">
+        <b>{{ (p.nome_produtor or '-')|title }}</b>
+        <span>{{ (p.nome_propriedade or '')|title }}{% if p.municipio %} · {{ p.municipio|upper }}{% endif %}</span>
+      </a>
+    {% else %}
+      <p class="sub">Nenhum produtor atrelado a você ainda. Peça para a equipe do projeto atrelar os seus produtores.</p>
+    {% endfor %}
   </div>
 
   {% if escolha %}
@@ -44,10 +56,6 @@
   </div>
   {% endif %}
 
-  <div class="card" id="recentes" hidden>
-    <h1 style="font-size:1.1rem;">Últimos produtores</h1>
-    <div id="lista-recentes"></div>
-  </div>
 </div>
 <script>
 (function () {
@@ -59,20 +67,6 @@
     else if (d.length > 3) o = d.slice(0, 3) + '.' + d.slice(3);
     c.value = o;
   });
-  try {
-    var l = JSON.parse(localStorage.getItem('fats-tec-recentes') || '[]'), box = document.getElementById('lista-recentes');
-    var base = {{ url_for('tecnico_home', token=token)|tojson }};
-    l = l.filter(function (x) { return x.url && x.url.indexOf(base) === 0; });
-    if (l.length) {
-      document.getElementById('recentes').hidden = false;
-      l.forEach(function (x) {
-        var a = document.createElement('a'); a.className = 'tc-item'; a.href = x.url;
-        var b = document.createElement('b'); b.textContent = x.nome || 'Produtor';
-        var s = document.createElement('span'); s.textContent = x.prop || '';
-        a.appendChild(b); a.appendChild(s); box.appendChild(a);
-      });
-    }
-  } catch (e) {}
 })();
 </script>
 {% endblock %}

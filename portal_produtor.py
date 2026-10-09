@@ -6,7 +6,6 @@ sistema.
   /p/<codigo>                     tela do produtor (registrar + meus registros)
   /p/<codigo>/api/salvar          envio dos registros (também da fila offline)
   /p/<codigo>/excluir/<id>        apagar um registro que ele fez por engano
-  /manejo/links                   (equipe) gera e envia os links por WhatsApp
 
 Portal do TÉCNICO (cadastra no lugar do produtor, pelo celular):
 
@@ -54,6 +53,11 @@ CAMPOS_DO_PRODUTOR = list(CAMPOS)
 
 def _novo_token() -> str:
     return secrets.token_urlsafe(9)
+
+
+def _fmt_cpf(texto) -> str:
+    d = "".join(c for c in str(texto or "") if c.isdigit())
+    return f"{d[:3]}.{d[3:6]}.{d[6:9]}-{d[9:]}" if len(d) == 11 else d
 
 
 def _so_digitos(texto) -> str:
@@ -123,7 +127,8 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
         if not tec:
             return None
         prod = conn.execute(
-            "SELECT id, nome_produtor, nome_propriedade FROM produtores WHERE id = ?", (pid,),
+            "SELECT id, nome_produtor, nome_propriedade FROM produtores WHERE id = ? AND tecnico_id = ?",
+            (pid, tec["id"]),
         ).fetchone()
         if not prod:
             return None
@@ -352,7 +357,7 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
         conn = _conectar()
         if conn is None:
             return SEM_SINAL
-        escolha, erro_cpf, cpf_digitado = [], None, ""
+        escolha, erro_cpf, cpf_digitado, meus = [], None, "", []
         try:
             tec = _tecnico(conn, token)
             if not tec:
@@ -365,16 +370,21 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
                 else:
                     achados = conn.execute(
                         "SELECT id, nome_produtor, nome_propriedade, municipio FROM produtores "
-                        "WHERE lpad(regexp_replace(coalesce(cpf, ''), '[^0-9]', '', 'g'), 11, '0') = ? "
+                        "WHERE tecnico_id = ? AND lpad(regexp_replace(coalesce(cpf, ''), '[^0-9]', '', 'g'), 11, '0') = ? "
                         "ORDER BY nome_produtor",
-                        (digitos,),
+                        (tec["id"], digitos),
                     ).fetchall()
                     if not achados:
-                        erro_cpf = "Nenhum produtor encontrado com esse CPF."
+                        erro_cpf = "Esse CPF não está entre os seus produtores."
                     elif len(achados) == 1:
                         return redirect(url_for("tecnico_produtor", token=token, pid=achados[0]["id"]))
                     else:
                         escolha = [dict(a) for a in achados]
+            meus = [dict(m) for m in conn.execute(
+                "SELECT id, nome_produtor, nome_propriedade, municipio FROM produtores "
+                "WHERE tecnico_id = ? ORDER BY nome_produtor",
+                (tec["id"],),
+            ).fetchall()]
         except Exception as erro:
             if erro_de_conexao(erro):
                 return SEM_SINAL
@@ -383,7 +393,7 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
             conn.close()
         return render_template(
             "tecnico_cpf.html", token=token, tecnico=tec, erro_cpf=erro_cpf,
-            cpf=cpf_digitado, escolha=escolha,
+            cpf=cpf_digitado, escolha=escolha, meus=meus,
             manifest_url=url_for("tecnico_manifest", token=token),
         )
 
@@ -413,71 +423,6 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
     if MODO_PRODUTOR:
         return
 
-    def manejo_links():
-        try:
-            conn = get_connection()
-        except Exception as erro:
-            if not erro_de_conexao(erro) and not isinstance(erro, RuntimeError):
-                raise
-            return render_template("offline.html")
-        try:
-            busca = (request.args.get("q") or "").strip()
-            params, filtro = [], ""
-            if busca:
-                filtro = "WHERE (p.nome_produtor ILIKE ? OR p.nome_propriedade ILIKE ? OR p.municipio ILIKE ?)"
-                params = [f"%{busca}%"] * 3
-            linhas = conn.execute(
-                "SELECT p.id, p.nome_produtor, p.nome_propriedade, p.municipio, p.telefone, p.token_acesso, "
-                "  (SELECT COUNT(*) FROM animais a WHERE a.produtor_id = p.id) AS qtd_animais, "
-                "  (SELECT COUNT(*) FROM manejo_reprodutivo m JOIN animais a ON a.id = m.animal_id "
-                "     WHERE a.produtor_id = p.id AND m.origem = 'produtor') AS qtd_registros "
-                f"FROM produtores p {filtro} ORDER BY p.nome_produtor",
-                params,
-            ).fetchall()
-        except Exception as erro:
-            if erro_de_conexao(erro):
-                return render_template("offline.html")
-            raise
-        finally:
-            conn.close()
-        produtores = []
-        for r in linhas:
-            r = dict(r)
-            digitos = re.sub(r"\D", "", r.get("telefone") or "")
-            if len(digitos) in (10, 11):
-                digitos = "55" + digitos
-            r["whatsapp"] = digitos if len(digitos) in (12, 13) else ""
-            produtores.append(r)
-        return render_template(
-            "manejo_links.html", produtores=produtores, busca=busca,
-            sem_link=sum(1 for r in produtores if not r["token_acesso"]),
-        )
-
-    def manejo_links_gerar():
-        conn = get_connection()
-        try:
-            faltam = conn.execute("SELECT id FROM produtores WHERE token_acesso IS NULL").fetchall()
-            for r in faltam:
-                conn.execute("UPDATE produtores SET token_acesso = ? WHERE id = ?", (_novo_token(), r["id"]))
-            conn.commit()
-        finally:
-            conn.close()
-        flash(f"{len(faltam)} link(s) gerado(s).", "success")
-        return redirect(url_for("manejo_links"))
-
-    def manejo_links_renovar(pid):
-        conn = get_connection()
-        try:
-            conn.execute("UPDATE produtores SET token_acesso = ? WHERE id = ?", (_novo_token(), pid))
-            conn.commit()
-        finally:
-            conn.close()
-        flash("Novo link gerado. O link antigo deixou de funcionar.", "success")
-        return redirect(url_for("manejo_links"))
-
-    app.add_url_rule("/manejo/links", "manejo_links", manejo_links, methods=["GET"])
-    app.add_url_rule("/manejo/links/gerar", "manejo_links_gerar", manejo_links_gerar, methods=["POST"])
-    app.add_url_rule("/manejo/links/<int:pid>/renovar", "manejo_links_renovar", manejo_links_renovar, methods=["POST"])
 
     # ---------------------- técnicos (cadastro e links) ----------------------
     def manejo_tecnicos():
@@ -489,44 +434,166 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
             return render_template("offline.html")
         try:
             linhas = conn.execute(
-                "SELECT t.id, t.nome, t.telefone, t.token_acesso, t.ativo, "
+                "SELECT t.id, t.nome, t.telefone, t.email, t.cpf, t.token_acesso, t.ativo, "
                 "  (SELECT COUNT(*) FROM manejo_reprodutivo m WHERE m.origem = 'tecnico' AND m.registrado_por = t.nome) AS qtd_registros "
                 "FROM tecnicos t ORDER BY t.ativo DESC, t.nome"
             ).fetchall()
+            todos_prod = [dict(x) for x in conn.execute(
+                "SELECT p.id, p.nome_produtor, p.nome_propriedade, p.municipio, p.tecnico_id, t.nome AS tecnico_nome "
+                "FROM produtores p LEFT JOIN tecnicos t ON t.id = p.tecnico_id ORDER BY p.nome_produtor"
+            ).fetchall()]
         except Exception as erro:
             if erro_de_conexao(erro):
                 return render_template("offline.html")
             raise
         finally:
             conn.close()
+        por_tec = {}
+        for x in todos_prod:
+            if x["tecnico_id"]:
+                por_tec.setdefault(x["tecnico_id"], []).append(x)
         tecnicos = []
         for r in linhas:
             r = dict(r)
+            r["produtores"] = por_tec.get(r["id"], [])
+            r["cpf_fmt"] = _fmt_cpf(r.get("cpf"))
             digitos = _so_digitos(r.get("telefone"))
             if len(digitos) in (10, 11):
                 digitos = "55" + digitos
             r["whatsapp"] = digitos if len(digitos) in (12, 13) else ""
             tecnicos.append(r)
-        return render_template("manejo_tecnicos.html", tecnicos=tecnicos)
+        return render_template("manejo_tecnicos.html", tecnicos=tecnicos, produtores=todos_prod)
 
     def manejo_tecnicos_novo():
         nome = " ".join((request.form.get("nome") or "").split())[:80].title()
         telefone = (request.form.get("telefone") or "").strip()[:30] or None
+        email = (request.form.get("email") or "").strip().lower()[:120]
+        cpf = _so_digitos(request.form.get("cpf"))
         if not nome:
             flash("Informe o nome do técnico.", "error")
+            return redirect(url_for("manejo_tecnicos"))
+        if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            flash("O e-mail não parece válido.", "error")
+            return redirect(url_for("manejo_tecnicos"))
+        if cpf and len(cpf) != 11:
+            flash("O CPF do técnico precisa ter 11 números.", "error")
             return redirect(url_for("manejo_tecnicos"))
         conn = get_connection()
         try:
             igual = conn.execute("SELECT id FROM tecnicos WHERE lower(nome) = lower(?)", (nome,)).fetchone()
+            igual_cpf = conn.execute("SELECT id FROM tecnicos WHERE cpf = ?", (cpf,)).fetchone() if cpf else None
             if igual:
                 flash("Já existe um técnico com esse nome. Use um nome diferente (ex.: com o sobrenome).", "error")
+            elif igual_cpf:
+                flash("Já existe um técnico com esse CPF.", "error")
             else:
                 conn.execute(
-                    "INSERT INTO tecnicos (nome, telefone, token_acesso) VALUES (?, ?, ?)",
-                    (nome, telefone, _novo_token()),
+                    "INSERT INTO tecnicos (nome, telefone, email, cpf, token_acesso) VALUES (?, ?, ?, ?, ?)",
+                    (nome, telefone, email or None, cpf or None, _novo_token()),
                 )
                 conn.commit()
-                flash(f"Técnico {nome} cadastrado. O link dele está na lista.", "success")
+                flash(f"Técnico {nome} cadastrado. Agora atrele os produtores dele.", "success")
+        finally:
+            conn.close()
+        return redirect(url_for("manejo_tecnicos"))
+
+    def manejo_tecnicos_atrelar(tid):
+        ids = []
+        for v in request.form.getlist("produtor_id"):
+            try:
+                ids.append(int(v))
+            except ValueError:
+                pass
+        ids = list(dict.fromkeys(ids))[:2000]
+        conn = get_connection()
+        try:
+            tec = conn.execute("SELECT id, nome FROM tecnicos WHERE id = ?", (tid,)).fetchone()
+            if not tec or not ids:
+                flash("Marque pelo menos um produtor para atrelar.", "error")
+                return redirect(url_for("manejo_tecnicos"))
+            atrelados, ocupados = 0, []
+            for pid in ids:
+                prod = conn.execute(
+                    "SELECT p.id, p.nome_produtor, p.tecnico_id, t.nome AS antigo FROM produtores p "
+                    "LEFT JOIN tecnicos t ON t.id = p.tecnico_id WHERE p.id = ?", (pid,),
+                ).fetchone()
+                if not prod:
+                    continue
+                if prod["tecnico_id"]:
+                    if prod["tecnico_id"] != tid:
+                        ocupados.append(f"{prod['nome_produtor']} (de {prod['antigo']})")
+                    continue
+                conn.execute("UPDATE produtores SET tecnico_id = ? WHERE id = ? AND tecnico_id IS NULL", (tid, pid))
+                atrelados += 1
+            conn.commit()
+            if atrelados:
+                flash(f"{atrelados} produtor{'' if atrelados == 1 else 'es'} atrelado{'' if atrelados == 1 else 's'} a {tec['nome']}.", "success")
+            if ocupados:
+                flash("Não atrelados, pois já pertencem a outro técnico: " + "; ".join(ocupados[:5]) + ("…" if len(ocupados) > 5 else "") + ". Retire-os de lá antes.", "error")
+        finally:
+            conn.close()
+        return redirect(url_for("manejo_tecnicos"))
+
+    def manejo_tecnicos_desatrelar(tid, pid):
+        conn = get_connection()
+        try:
+            conn.execute("UPDATE produtores SET tecnico_id = NULL WHERE id = ? AND tecnico_id = ?", (pid, tid))
+            conn.commit()
+            flash("Produtor retirado do técnico.", "success")
+        finally:
+            conn.close()
+        return redirect(url_for("manejo_tecnicos"))
+
+    def manejo_tecnicos_editar(tid):
+        nome = " ".join((request.form.get("nome") or "").split())[:80].title()
+        telefone = (request.form.get("telefone") or "").strip()[:30] or None
+        email = (request.form.get("email") or "").strip().lower()[:120]
+        cpf = _so_digitos(request.form.get("cpf"))
+        if not nome:
+            flash("Informe o nome do técnico.", "error")
+            return redirect(url_for("manejo_tecnicos"))
+        if email and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            flash("O e-mail não parece válido.", "error")
+            return redirect(url_for("manejo_tecnicos"))
+        if cpf and len(cpf) != 11:
+            flash("O CPF do técnico precisa ter 11 números.", "error")
+            return redirect(url_for("manejo_tecnicos"))
+        conn = get_connection()
+        try:
+            atual = conn.execute("SELECT id, nome FROM tecnicos WHERE id = ?", (tid,)).fetchone()
+            if not atual:
+                flash("Técnico não encontrado.", "error")
+            elif conn.execute("SELECT id FROM tecnicos WHERE lower(nome) = lower(?) AND id <> ?", (nome, tid)).fetchone():
+                flash("Já existe outro técnico com esse nome.", "error")
+            elif cpf and conn.execute("SELECT id FROM tecnicos WHERE cpf = ? AND id <> ?", (cpf, tid)).fetchone():
+                flash("Já existe outro técnico com esse CPF.", "error")
+            else:
+                conn.execute(
+                    "UPDATE tecnicos SET nome = ?, telefone = ?, email = ?, cpf = ? WHERE id = ?",
+                    (nome, telefone, email or None, cpf or None, tid),
+                )
+                if atual["nome"] != nome:   # os registros antigos continuam com o nome certo
+                    conn.execute(
+                        "UPDATE manejo_reprodutivo SET registrado_por = ? WHERE origem = 'tecnico' AND registrado_por = ?",
+                        (nome, atual["nome"]),
+                    )
+                conn.commit()
+                flash(f"Dados de {nome} atualizados.", "success")
+        finally:
+            conn.close()
+        return redirect(url_for("manejo_tecnicos"))
+
+    def manejo_tecnicos_excluir(tid):
+        conn = get_connection()
+        try:
+            tec = conn.execute("SELECT id, nome FROM tecnicos WHERE id = ?", (tid,)).fetchone()
+            if not tec:
+                flash("Técnico não encontrado.", "error")
+            else:
+                conn.execute("UPDATE produtores SET tecnico_id = NULL WHERE tecnico_id = ?", (tid,))
+                conn.execute("DELETE FROM tecnicos WHERE id = ?", (tid,))
+                conn.commit()
+                flash(f"Técnico {tec['nome']} excluído. Os produtores dele ficaram livres e os registros que ele fez foram mantidos.", "success")
         finally:
             conn.close()
         return redirect(url_for("manejo_tecnicos"))
@@ -552,5 +619,9 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
 
     app.add_url_rule("/manejo/tecnicos", "manejo_tecnicos", manejo_tecnicos, methods=["GET"])
     app.add_url_rule("/manejo/tecnicos/novo", "manejo_tecnicos_novo", manejo_tecnicos_novo, methods=["POST"])
+    app.add_url_rule("/manejo/tecnicos/<int:tid>/atrelar", "manejo_tecnicos_atrelar", manejo_tecnicos_atrelar, methods=["POST"])
+    app.add_url_rule("/manejo/tecnicos/<int:tid>/desatrelar/<int:pid>", "manejo_tecnicos_desatrelar", manejo_tecnicos_desatrelar, methods=["POST"])
+    app.add_url_rule("/manejo/tecnicos/<int:tid>/editar", "manejo_tecnicos_editar", manejo_tecnicos_editar, methods=["POST"])
+    app.add_url_rule("/manejo/tecnicos/<int:tid>/excluir", "manejo_tecnicos_excluir", manejo_tecnicos_excluir, methods=["POST"])
     app.add_url_rule("/manejo/tecnicos/<int:tid>/renovar", "manejo_tecnicos_renovar", manejo_tecnicos_renovar, methods=["POST"])
     app.add_url_rule("/manejo/tecnicos/<int:tid>/ativar", "manejo_tecnicos_ativar", manejo_tecnicos_ativar, methods=["POST"])
