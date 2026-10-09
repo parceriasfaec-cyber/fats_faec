@@ -47,6 +47,7 @@ OPCOES = {
     "dg2_resultado": ["PRENHE", "PERDA", "A CONFIRMAR"],
     "sexagem": ["FEMEA", "MACHO", "INDETERMINADA"],
     "corpo_luteo": ["DIREITO", "ESQUERDO", "SEM CL"],
+    "aptidao": ["APTA", "INAPTA"],
     "ecc": ["2.0", "2.5", "3.0", "3.5", "4.0", "4.5"],
     "doadora_beta_caseina": ["A2A2", "A1A2", "A1A1"],
     "embriao_grau": ["GRAU 1", "GRAU 2", "GRAU 3"],
@@ -59,7 +60,7 @@ RACAS_TOURO = ["Holandês (PO)", "Gir Leiteiro", "Girolando 5/8", "Guzerá"]
 
 # Campos de texto livre; os marcados como MAIUSCULOS são gravados em caixa alta
 CAMPOS_TEXTO = [
-    "brinco", "dg1_obs", "dg2_obs", "embriao_obs",
+    "brinco", "categoria", "dg1_obs", "dg2_obs", "embriao_obs",
     "doadora_nome", "embriao_codigo",
     "touro_nome", "touro_central", "botijao", "caneca", "rack", "semen_partida",
 ]
@@ -69,6 +70,8 @@ MAIUSCULOS = {
 }
 CAMPOS_RACA = {"doadora_raca": RACAS_DOADORA, "touro_raca": RACAS_TOURO}
 CAMPOS_DATA = ["data_procedimento", "embriao_data_opu"]
+CAMPOS_INT = ["del_dias"]     # dias em lactação (DEL)
+CATEGORIAS = ["Receptora 1/2", "Receptora 5/8", "Receptora 3/4", "Receptora 7/8", "Novilha", "Vaca"]
 
 # Tudo o que é gravado na tabela (fora id / animal_id / carimbos de tempo)
 CAMPOS = (
@@ -77,6 +80,7 @@ CAMPOS = (
     + list(CAMPOS_RACA)
     + [c for c in OPCOES if c != "tipo_manejo"]
     + ["embriao_data_opu"]
+    + CAMPOS_INT
 )
 
 # O que o celular lembra de um animal para o próximo (o técnico aplica o mesmo
@@ -163,6 +167,14 @@ def ler_formulario(form) -> dict:
         dados[c] = v if v in validos else None
     for c in CAMPOS_DATA:
         dados[c] = _data_ou_none(form.get(c))
+    for c in CAMPOS_INT:
+        try:
+            n = int(str(form.get(c) or "").strip())
+        except ValueError:
+            n = None
+        dados[c] = n if n is not None and 0 <= n <= 9999 else None
+    if dados["dg1_resultado"] == "VAZIA":      # vazia no DG1: não existe DG2 nem sexagem
+        dados["dg2_resultado"] = dados["sexagem"] = dados["dg2_obs"] = None
     return dados
 
 
@@ -236,6 +248,25 @@ def gravar_registro(conn, dados, animais, origem=None):
     return "criado", None, animal
 
 
+def contexto_formulario() -> dict:
+    """Constantes que a ficha (templates/_manejo_formulario.html) precisa, para a
+    equipe e para o portal do produtor usarem exatamente a mesma ficha."""
+    return dict(
+        opcoes=OPCOES, categorias=CATEGORIAS, racas_doadora=RACAS_DOADORA, racas_touro=RACAS_TOURO,
+        dias_dg1=DIAS_DG1, dias_dg2=DIAS_DG2, dias_parto=DIAS_PARTO,
+        campos_carregar=CARREGAR_PARA_PROXIMO,
+    )
+
+
+def valores_para_form(dados: dict) -> dict:
+    """Converte datas para texto ISO (o que o <input type=date> espera)."""
+    v = dict(dados)
+    for c in CAMPOS_DATA:
+        if isinstance(v.get(c), date):
+            v[c] = v[c].isoformat()
+    return v
+
+
 # ------------------------------------------------------------------
 # Rotas
 # ------------------------------------------------------------------
@@ -284,10 +315,7 @@ def registrar_manejo_reprodutivo(app, get_connection, erro_de_conexao):
         return render_template(
             "manejo_form.html",
             reg=reg, registro_id=registro_id, animais=animais_js,
-            opcoes=OPCOES, racas_doadora=RACAS_DOADORA, racas_touro=RACAS_TOURO,
-            dias_dg1=DIAS_DG1, dias_dg2=DIAS_DG2, dias_parto=DIAS_PARTO,
-            registrados_hoje=_contar_hoje(conn),
-            campos_carregar=CARREGAR_PARA_PROXIMO,
+            registrados_hoje=_contar_hoje(conn), **contexto_formulario(),
         )
 
     def _valores_para_form(dados: dict) -> dict:

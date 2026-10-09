@@ -1,0 +1,554 @@
+{# Ficha completa do manejo reprodutivo (3 abas). Usada pela equipe (modo='equipe') e pelo
+   portal do produtor (modo='produtor'). #}
+{% macro grupo(nome, atual, itens, colunas=3, obrigatorio=False) %}
+<div class="mr-opts c{{ colunas }}" data-grupo="{{ nome }}" {% if obrigatorio %}data-obrigatorio="1"{% endif %}>
+  <input type="hidden" name="{{ nome }}" value="{{ atual or '' }}">
+  {% for valor, rotulo, cor in itens %}
+  <button type="button" class="mr-opt cor-{{ cor }}{{ ' sel' if atual == valor else '' }}"
+          data-valor="{{ valor }}" aria-pressed="{{ 'true' if atual == valor else 'false' }}">{{ rotulo|safe }}</button>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+<style>
+  .mr { max-width: 720px; margin: 0 auto; padding-bottom: 84px; }
+  .mr-topo { display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  .mr-topo h1 { margin:0; font-size:1.6rem; color:var(--verde-escuro); }
+  .mr-topo p { margin:4px 0 0; color:var(--cinza); font-size:0.88rem; }
+  .mr-contador { background:var(--verde-claro); border:1px solid var(--verde); color:var(--verde-escuro);
+                 border-radius:12px; padding:3px 12px; font-size:0.82rem; font-weight:600; white-space:nowrap; }
+
+  .mr-abas { display:flex; border-bottom:2px solid var(--borda); margin-bottom:14px; }
+  .mr-aba { flex:1; padding:11px 4px; background:none; border:none; border-bottom:3px solid transparent; margin-bottom:-2px;
+            font-family:var(--fonte-corpo); font-size:0.78rem; font-weight:700; letter-spacing:.02em; color:var(--cinza); cursor:pointer; text-transform:uppercase; }
+  .mr-aba.ativa { color:var(--terra); border-bottom-color:var(--terra); background:rgba(154,67,27,.06); }
+  .mr-painel[hidden] { display:none; }
+
+  .mr .card { padding:16px 18px; margin-bottom:14px; }
+  .mr .card.dg { border-left:4px solid #2c6e8a; }
+  .mr .card.embriao { border-left:4px solid var(--verde); }
+  .mr .card.touro { border-left:4px solid #2c5d8a; }
+  .mr-rotulo { display:block; font-size:0.74rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--terra); margin:0 0 8px; }
+  .mr-sub { font-size:0.7rem; font-weight:600; text-transform:uppercase; color:var(--cinza); margin:0 0 4px; display:block; }
+  .mr .linha { margin-bottom:12px; }
+  .mr .linha:last-child { margin-bottom:0; }
+  .mr .duas { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .mr .tres { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+
+  .mr input[type=text], .mr input[type=date], .mr select, .mr textarea { font-size:16px; min-height:48px; padding:10px 12px; }
+  .mr textarea { min-height:72px; }
+  #brinco { font-size:1.35rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase; padding:12px; border:2px solid var(--verde); }
+  .mr-animal { margin-top:8px; padding:9px 12px; border-radius:3px; font-size:0.84rem; background:#f6f0e0; border:1px solid var(--borda); color:var(--cinza); }
+  .mr-animal.achou { background:var(--verde-claro); border-color:var(--verde); color:var(--verde-escuro); }
+  .mr-animal.nao { background:var(--aviso-bg); border-color:var(--aviso); color:var(--aviso); }
+  .mr-animal b { color:inherit; }
+
+  .mr-opts { display:grid; gap:6px; }
+  .mr-opts.c2 { grid-template-columns:repeat(2,1fr); }
+  .mr-opts.c3 { grid-template-columns:repeat(3,1fr); }
+  .mr-opts.c6 { grid-template-columns:repeat(6,1fr); }
+  .mr-opt { min-height:50px; padding:11px 6px; border:1px solid var(--borda); border-radius:4px; background:#f6f0e0; color:var(--tinta);
+            font-family:var(--fonte-corpo); font-size:0.86rem; font-weight:700; cursor:pointer; line-height:1.2; -webkit-tap-highlight-color:transparent; }
+  .mr-opt:active { transform:scale(.98); }
+  .mr-opt.sel.cor-verde { background:var(--verde); border-color:var(--verde-escuro); color:#fff; }
+  .mr-opt.sel.cor-vermelho { background:var(--erro); border-color:var(--erro); color:#fff; }
+  .mr-opt.sel.cor-ambar { background:var(--aviso); border-color:var(--aviso); color:#fff; }
+  .mr-opt.sel.cor-azul { background:#2c5d8a; border-color:#23496d; color:#fff; }
+
+  .mr-previsao { margin-top:12px; background:var(--verde-escuro); color:#eadfc6; border-radius:4px; padding:10px 14px; display:grid; grid-template-columns:repeat(3,1fr); gap:8px; text-align:center; }
+  .mr-previsao small { display:block; font-size:0.68rem; text-transform:uppercase; letter-spacing:.04em; color:#b3a487; }
+  .mr-previsao strong { font-family:var(--fonte-titulo); font-size:1.05rem; color:#fff; }
+
+  .mr-dg { background:#faf5e8; border:1px solid var(--borda); border-radius:4px; padding:12px; margin-bottom:10px; }
+  .mr-dg:last-child { margin-bottom:0; }
+  .mr-dg-topo { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; font-size:0.85rem; font-weight:700; color:var(--verde-escuro); }
+  .mr-dg-topo span { font-weight:400; font-size:0.78rem; color:var(--cinza); }
+  .mr-dg input[type=text] { margin-top:8px; }
+  .mr-sexagem { margin-top:10px; padding-top:10px; border-top:1px dashed var(--borda); }
+
+  .mr-barra { position:fixed; left:0; right:0; bottom:0; z-index:20; background:var(--verde-escuro); border-top:3px solid var(--terra); padding:10px 16px; }
+  .mr-barra .dentro { max-width:720px; margin:0 auto; display:flex; gap:10px; }
+  .mr-barra .btn { flex:1; padding:13px 14px; font-size:0.95rem; font-weight:700; text-align:center; }
+  .mr-barra .btn-ghost { flex:0 0 auto; background:transparent; color:#eadfc6; border-color:rgba(234,223,198,.4); }
+  @media (min-width:901px) { .mr-barra { left:240px; } }
+  @media (max-width:900px) {
+    .mr { padding-bottom:96px; }
+    .mr-abas { position:sticky; top:54px; z-index:25; background:var(--fundo); margin:0 -12px 12px; padding:0 12px; }
+    .mr-aba { font-size:0.8rem; padding:13px 2px; }
+    .mr .card { padding:14px 14px; border-radius:6px; }
+    .mr-barra { padding:10px 12px calc(10px + env(safe-area-inset-bottom)); }
+    .mr-barra .btn { padding:15px 14px; font-size:1.02rem; border-radius:6px; }
+  }
+  @media (max-width:400px) { .mr-opt { font-size:0.76rem; padding:10px 2px; } .mr .duas { gap:8px; } }
+</style>
+
+<div class="mr" data-hoje="{{ registrados_hoje|default(0) }}">
+{% if modo == 'equipe' %}
+  <div class="mr-topo desktop-only">
+    <div>
+      <h1>{{ 'Editar manejo' if registro_id else 'Manejo reprodutivo' }}</h1>
+      <p>{{ 'Lance o DG, a sexagem e o que faltar deste procedimento.' if registro_id else 'IATF / TETF — registro no curral.' }}</p>
+    </div>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <span class="mr-contador" id="contador-hoje">Registrados hoje: {{ registrados_hoje }}</span>
+      <a href="{{ url_for('manejo_lista') }}" class="btn btn-ghost btn-sm">Ver registros</a>
+    </div>
+  </div>
+
+{% endif %}
+  <form method="post" id="form-manejo" autocomplete="off" data-edicao="{{ '1' if registro_id else '' }}">
+
+    <div class="mr-abas" role="tablist">
+      <button type="button" class="mr-aba ativa" data-aba="aba-receptora">Receptora / Ação</button>
+      <button type="button" class="mr-aba" data-aba="aba-doadora">Doadora (TETF)</button>
+      <button type="button" class="mr-aba" data-aba="aba-touro">Touro / Sêmen</button>
+      {% if modo == 'produtor' and not registro_id %}<button type="button" class="mr-aba" data-aba="aba-meus">Meus registros</button>{% endif %}
+    </div>
+
+    <!-- ============ ABA 1: RECEPTORA ============ -->
+    <section class="mr-painel" id="aba-receptora">
+
+      <div class="card">
+        <span class="mr-rotulo">1. Identificação da matriz</span>
+        <input type="text" id="brinco" name="brinco" value="{{ reg.brinco or '' }}" list="lista-brincos"
+               placeholder="Brinco FAEC ou da fazenda" autocapitalize="characters" inputmode="text">
+        <datalist id="lista-brincos">
+          {% for a in animais %}
+            {% if a.faec %}<option value="{{ a.faec }}">{{ a.fazenda }}</option>{% endif %}
+            {% if a.fazenda %}<option value="{{ a.fazenda }}">{{ a.faec }}</option>{% endif %}
+          {% endfor %}
+        </datalist>
+        <div class="mr-animal" id="info-animal">Digite o brinco para buscar o animal.</div>
+        <div class="duas linha" style="margin-top:10px;">
+          <div>
+            <span class="mr-sub">Categoria</span>
+            <input type="text" name="categoria" value="{{ reg.categoria or '' }}" list="lista-categorias" placeholder="Ex.: Receptora 3/4">
+            <datalist id="lista-categorias">{% for c in categorias %}<option value="{{ c }}">{% endfor %}</datalist>
+          </div>
+          <div>
+            <span class="mr-sub">DEL (dias)</span>
+            <input type="number" name="del_dias" value="{{ reg.del_dias if reg.del_dias is not none else '' }}" min="0" max="9999" inputmode="numeric" placeholder="Ex.: 110">
+          </div>
+        </div>
+        <div class="linha">
+          <span class="mr-sub">Aptidão</span>
+          {{ grupo('aptidao', reg.aptidao, [('APTA','APTA','verde'),('INAPTA','INAPTA','vermelho')]) }}
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="mr-rotulo">2. Procedimento e previsões</span>
+        <div class="duas linha">
+          <div>
+            <span class="mr-sub">Data do procedimento</span>
+            <input type="date" id="data_procedimento" name="data_procedimento" value="{{ reg.data_procedimento or '' }}">
+          </div>
+          <div>
+            <span class="mr-sub">Tipo de manejo</span>
+            {{ grupo('tipo_manejo', reg.tipo_manejo, [('IATF','IATF','verde'),('TETF','TETF','verde')], 2, True) }}
+          </div>
+        </div>
+        <div class="mr-previsao">
+          <div><small>DG1 (+{{ dias_dg1 }}d)</small><strong id="prev-dg1">—</strong></div>
+          <div><small>DG2 (+{{ dias_dg2 }}d)</small><strong id="prev-dg2">—</strong></div>
+          <div><small>Parto previsto</small><strong id="prev-parto">—</strong></div>
+        </div>
+      </div>
+
+      <div class="card dg">
+        <span class="mr-rotulo" style="color:#2c6e8a;">3. Diagnóstico de gestação (DG)</span>
+
+        <div class="mr-dg">
+          <div class="mr-dg-topo">DG 1 — 30 dias <span>previsto: <b id="rot-dg1">—</b></span></div>
+          {{ grupo('dg1_resultado', reg.dg1_resultado, [('PRENHE','PRENHE','verde'),('VAZIA','VAZIA','vermelho'),('REAVALIAR','REAVALIAR','ambar')]) }}
+          <input type="text" name="dg1_obs" value="{{ reg.dg1_obs or '' }}" placeholder="Obs. DG 30d (ex.: CL funcional direito, vesícula 14 mm)">
+        </div>
+
+        <p id="aviso-dg2" hidden style="margin:0;font-size:0.88rem;color:var(--cinza);">Matriz vazia no DG1 — não precisa de DG2.</p>
+        <div class="mr-dg" id="bloco-dg2">
+          <div class="mr-dg-topo">DG 2 — 60 dias (sexagem) <span>previsto: <b id="rot-dg2">—</b></span></div>
+          {{ grupo('dg2_resultado', reg.dg2_resultado, [('PRENHE','PRENHE','verde'),('PERDA','PERDA','vermelho'),('A CONFIRMAR','A CONFIRMAR','ambar')]) }}
+          <div class="mr-sexagem">
+            <span class="mr-sub" style="color:#2c6e8a;">Sexagem fetal</span>
+            {{ grupo('sexagem', reg.sexagem, [('FEMEA','FÊMEA','azul'),('MACHO','MACHO','azul'),('INDETERMINADA','INDET.','ambar')]) }}
+          </div>
+          <input type="text" name="dg2_obs" value="{{ reg.dg2_obs or '' }}" placeholder="Obs. DG 60d / sexagem (ex.: feto vivo)">
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="mr-rotulo">4. Corpo lúteo (CL) e ECC</span>
+        <div class="linha">
+          <span class="mr-sub">Corpo lúteo</span>
+          {{ grupo('corpo_luteo', reg.corpo_luteo, [('DIREITO','CL DIREITO','verde'),('ESQUERDO','CL ESQUERDO','verde'),('SEM CL','SEM CL','vermelho')]) }}
+        </div>
+        <div class="linha">
+          <span class="mr-sub">Escore de condição corporal (ECC)</span>
+          {{ grupo('ecc', reg.ecc, [('2.0','2.0','verde'),('2.5','2.5','verde'),('3.0','3.0','verde'),('3.5','3.5','verde'),('4.0','4.0','verde'),('4.5','4.5','verde')], 6) }}
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ABA 2: DOADORA ============ -->
+    <section class="mr-painel" id="aba-doadora" hidden>
+      <div class="card embriao">
+        <span class="mr-rotulo" style="color:var(--verde);">Doadora (FIV)</span>
+        <div class="linha">
+          <span class="mr-sub">Nome / registro da doadora</span>
+          <input type="text" name="doadora_nome" value="{{ reg.doadora_nome or '' }}" placeholder="Ex.: GIR-1004 - SOBRADA FIV" style="text-transform:uppercase;">
+        </div>
+        <div class="duas">
+          <div>
+            <span class="mr-sub">Raça</span>
+            <select name="doadora_raca">
+              <option value="">—</option>
+              {% for r in racas_doadora %}<option value="{{ r }}" {{ 'selected' if reg.doadora_raca == r else '' }}>{{ r }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <span class="mr-sub">Beta-caseína</span>
+            {{ grupo('doadora_beta_caseina', reg.doadora_beta_caseina, [('A2A2','A2A2','verde'),('A1A2','A1A2','ambar'),('A1A1','A1A1','vermelho')]) }}
+          </div>
+        </div>
+      </div>
+
+      <div class="card embriao">
+        <span class="mr-rotulo" style="color:var(--verde);">Embrião e inovulação</span>
+        <div class="duas linha">
+          <div>
+            <span class="mr-sub">Código / lote do embrião</span>
+            <input type="text" name="embriao_codigo" value="{{ reg.embriao_codigo or '' }}" style="text-transform:uppercase;">
+          </div>
+          <div>
+            <span class="mr-sub">Data da OPU (coleta)</span>
+            <input type="date" name="embriao_data_opu" value="{{ reg.embriao_data_opu or '' }}">
+          </div>
+        </div>
+        <div class="linha">
+          <span class="mr-sub">Grau do embrião</span>
+          {{ grupo('embriao_grau', reg.embriao_grau, [('GRAU 1','GRAU 1<br>excelente','verde'),('GRAU 2','GRAU 2<br>bom','verde'),('GRAU 3','GRAU 3<br>regular','ambar')]) }}
+        </div>
+        <div class="linha">
+          <span class="mr-sub">Conservação</span>
+          {{ grupo('embriao_conservacao', reg.embriao_conservacao, [('FRESCO','FRESCO','verde'),('VITRIFICADO','VITRIFICADO','verde')], 2) }}
+        </div>
+        <div class="linha">
+          <span class="mr-sub">Observações do embriologista</span>
+          <textarea name="embriao_obs" rows="2" placeholder="Anotações técnicas do embrião">{{ reg.embriao_obs or '' }}</textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ABA 3: TOURO ============ -->
+    <section class="mr-painel" id="aba-touro" hidden>
+      <div class="card touro">
+        <span class="mr-rotulo" style="color:#2c5d8a;">Touro (pai)</span>
+        <div class="linha">
+          <span class="mr-sub">Nome / registro do touro</span>
+          <input type="text" name="touro_nome" value="{{ reg.touro_nome or '' }}" placeholder="Nome registrado do touro" style="text-transform:uppercase;">
+        </div>
+        <div class="duas">
+          <div>
+            <span class="mr-sub">Raça</span>
+            <select name="touro_raca">
+              <option value="">—</option>
+              {% for r in racas_touro %}<option value="{{ r }}" {{ 'selected' if reg.touro_raca == r else '' }}>{{ r }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <span class="mr-sub">Central de IA</span>
+            <input type="text" name="touro_central" value="{{ reg.touro_central or '' }}" style="text-transform:uppercase;">
+          </div>
+        </div>
+      </div>
+
+      <div class="card touro">
+        <span class="mr-rotulo" style="color:#2c5d8a;">Palheta e botijão</span>
+        <div class="linha">
+          <span class="mr-sub">Tipo de sêmen</span>
+          {{ grupo('semen_tipo', reg.semen_tipo, [('SEXADO FEMEA','SEXADO FÊMEA','azul'),('SEXADO MACHO','SEXADO MACHO','azul'),('CONVENCIONAL','CONVENCIONAL','verde')]) }}
+        </div>
+        <div class="tres linha">
+          <div><span class="mr-sub">Nº botijão</span><input type="text" name="botijao" value="{{ reg.botijao or '' }}" style="text-align:center;text-transform:uppercase;"></div>
+          <div><span class="mr-sub">Caneca</span><input type="text" name="caneca" value="{{ reg.caneca or '' }}" style="text-align:center;text-transform:uppercase;"></div>
+          <div><span class="mr-sub">Rack / cor</span><input type="text" name="rack" value="{{ reg.rack or '' }}" style="text-align:center;text-transform:uppercase;"></div>
+        </div>
+        <div class="linha">
+          <span class="mr-sub">Partida / lote do sêmen</span>
+          <input type="text" name="semen_partida" value="{{ reg.semen_partida or '' }}" style="text-transform:uppercase;">
+        </div>
+      </div>
+    </section>
+
+    {% if modo == 'produtor' and not registro_id %}
+    <!-- ============ ABA 4: MEUS REGISTROS (produtor) ============ -->
+    <section class="mr-painel" id="aba-meus" hidden>
+      {% if registros %}
+        {% for r in registros %}
+        <div class="card" style="border-left:5px solid {{ 'var(--erro)' if r.sit_classe == 'erro' else ('var(--aviso)' if r.sit_classe == 'aviso' else ('var(--verde)' if r.sit_classe == 'ok' else 'var(--borda)')) }};">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+            <div>
+              <div style="font-family:var(--fonte-titulo);font-size:1.3rem;font-weight:700;color:var(--verde-escuro);">{{ r.brinco }}</div>
+              <div style="font-size:.85rem;color:var(--cinza);"><b>{{ r.tipo_manejo }}</b> em {{ r.data_procedimento.strftime('%d/%m/%Y') if r.data_procedimento else '-' }}</div>
+            </div>
+            <span class="badge-animais {{ 'completo' if r.sit_classe == 'ok' else ('parcial' if r.sit_classe in ('aviso','erro') else 'neutro') }}">{{ r.sit_texto }}</span>
+          </div>
+          <div style="font-size:.82rem;color:var(--cinza);margin:8px 0;">
+            DG1: {{ r.prev.dg1.strftime('%d/%m/%Y') if r.prev.dg1 else '-' }}{% if r.dg1_resultado %} ({{ r.dg1_resultado }}){% endif %}
+            · DG2: {{ r.prev.dg2.strftime('%d/%m/%Y') if r.prev.dg2 else '-' }}{% if r.dg2_resultado %} ({{ r.dg2_resultado }}){% endif %}
+            · Parto: {{ r.prev.parto.strftime('%d/%m/%Y') if r.prev.parto else '-' }}
+          </div>
+          <div style="display:flex;gap:8px;">
+            <a href="{{ url_for('produtor_editar', token=token, rid=r.id) }}" class="btn btn-primary" style="flex:1;text-align:center;padding:12px 8px;">Abrir / lançar DG</a>
+            {% if r.pode_excluir %}
+            <button type="button" class="btn btn-danger-ghost" style="padding:12px 14px;"
+                    data-excluir="{{ url_for('produtor_excluir', token=token, rid=r.id) }}" data-brinco="{{ (r.brinco or '')|e }}">Apagar</button>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="empty">Você ainda não tem registros.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    <div class="mr-barra" id="barra-enviar">
+      <div class="dentro">
+        {% if registro_id %}
+          <a href="{{ url_for('produtor_home', token=token) if modo == 'produtor' else url_for('manejo_lista') }}" class="btn btn-ghost">Cancelar</a>
+          <button type="submit" class="btn btn-primary" id="enviar">Salvar alterações</button>
+        {% else %}
+          <button type="submit" class="btn btn-primary" id="enviar">{{ 'Registrar animal →' if modo == 'produtor' else 'Confirmar e próximo animal →' }}</button>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+
+<script id="animais-json" type="application/json">{{ animais|tojson }}</script>
+<script>
+(function () {
+  var MODO = {{ modo|tojson }};
+  var DIAS_DG1 = {{ dias_dg1 }}, DIAS_DG2 = {{ dias_dg2 }};
+  var DIAS_PARTO = {{ dias_parto|tojson }};
+  var form = document.getElementById('form-manejo');
+
+  // ---------- abas ----------
+  var abas = document.querySelectorAll('.mr-aba');
+  var paineis = document.querySelectorAll('.mr-painel');
+  function irParaAba(id) {
+    paineis.forEach(function (p) { p.hidden = (p.id !== id); });
+    var barra = document.getElementById('barra-enviar'); if (barra) barra.style.display = (id === 'aba-meus') ? 'none' : '';
+    abas.forEach(function (b) { b.classList.toggle('ativa', b.dataset.aba === id); });
+    window.scrollTo({ top: 0 });
+  }
+  abas.forEach(function (b) { b.addEventListener('click', function () { irParaAba(b.dataset.aba); }); });
+
+  // ---------- botões de escolha (clicar de novo desmarca) ----------
+  document.querySelectorAll('.mr-opts').forEach(function (grupo) {
+    var campo = grupo.querySelector('input[type=hidden]');
+    grupo.addEventListener('click', function (e) {
+      var btn = e.target.closest('.mr-opt');
+      if (!btn) return;
+      var jaMarcado = btn.classList.contains('sel');
+      grupo.querySelectorAll('.mr-opt').forEach(function (b) {
+        b.classList.remove('sel'); b.setAttribute('aria-pressed', 'false');
+      });
+      if (jaMarcado && !grupo.dataset.obrigatorio) {
+        campo.value = '';
+      } else {
+        btn.classList.add('sel'); btn.setAttribute('aria-pressed', 'true');
+        campo.value = btn.dataset.valor;
+      }
+      if (grupo.dataset.grupo === 'tipo_manejo') recalcular();
+      if (grupo.dataset.grupo === 'dg1_resultado') ajustarDg2();
+    });
+  });
+
+  // ---------- previsões de DG1 / DG2 / parto ----------
+  function fmt(d) {
+    return ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
+  }
+  function somar(base, dias) { var d = new Date(base.getTime()); d.setDate(d.getDate() + dias); return d; }
+  function recalcular() {
+    var v = document.getElementById('data_procedimento').value;
+    var tipo = form.elements['tipo_manejo'].value;
+    var ids = ['prev-dg1', 'prev-dg2', 'prev-parto', 'rot-dg1', 'rot-dg2'];
+    if (!v) { ids.forEach(function (i) { document.getElementById(i).textContent = '—'; }); return; }
+    var p = v.split('-');
+    var base = new Date(+p[0], +p[1] - 1, +p[2]);
+    var dg1 = fmt(somar(base, DIAS_DG1)), dg2 = fmt(somar(base, DIAS_DG2));
+    var parto = fmt(somar(base, DIAS_PARTO[tipo] || 284));
+    document.getElementById('prev-dg1').textContent = dg1;
+    document.getElementById('prev-dg2').textContent = dg2;
+    document.getElementById('prev-parto').textContent = parto;
+    document.getElementById('rot-dg1').textContent = dg1;
+    document.getElementById('rot-dg2').textContent = dg2;
+  }
+  document.getElementById('data_procedimento').addEventListener('change', recalcular);
+  recalcular();
+
+  // DG1 VAZIA: não há DG2 nem sexagem — esconde o bloco e limpa o que tinha nele
+  function ajustarDg2() {
+    var vazia = form.elements['dg1_resultado'].value === 'VAZIA';
+    document.getElementById('bloco-dg2').hidden = vazia;
+    document.getElementById('aviso-dg2').hidden = !vazia;
+    if (vazia) {
+      ['dg2_resultado', 'sexagem'].forEach(function (n) { marcarOpcao(n, ''); });
+      if (form.elements['dg2_obs']) form.elements['dg2_obs'].value = '';
+    }
+  }
+  ajustarDg2();
+
+  // ---------- busca do animal pelo brinco ----------
+  var animais = JSON.parse(document.getElementById('animais-json').textContent || '[]');
+  var campoBrinco = document.getElementById('brinco');
+  var info = document.getElementById('info-animal');
+  function chaves(v) {
+    var b = (v || '').toUpperCase().replace(/\s+/g, '');
+    if (!b) return [];
+    return /^\d+$/.test(b) ? [b, String(parseInt(b, 10))] : [b];
+  }
+  function achar(v) {
+    var alvo = chaves(v);
+    if (!alvo.length) return null;
+    for (var i = 0; i < animais.length; i++) {
+      var ks = chaves(animais[i].faec).concat(chaves(animais[i].fazenda));
+      for (var j = 0; j < alvo.length; j++) if (ks.indexOf(alvo[j]) !== -1) return animais[i];
+    }
+    return null;
+  }
+  function esc(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+  function mostrarAnimal() {
+    var v = campoBrinco.value;
+    if (!v.trim()) { info.className = 'mr-animal'; info.textContent = 'Digite o brinco para buscar o animal.'; return; }
+    var a = achar(v);
+    if (!a) {
+      info.className = 'mr-animal nao';
+      info.textContent = MODO === 'produtor'
+        ? 'Esse brinco não está entre os seus animais. Confira o número.'
+        : 'Brinco não encontrado no cadastro de animais — será gravado só com o número digitado.';
+      return;
+    }
+    var partes = [];
+    if (a.faec) partes.push('FAEC <b>' + esc(a.faec) + '</b>');
+    if (a.fazenda) partes.push('Fazenda <b>' + esc(a.fazenda) + '</b>');
+    if (a.peso) partes.push(esc(a.peso) + ' kg');
+    var onde = MODO === 'produtor' ? '' : a.produtor ? esc(a.produtor) + (a.municipio ? ' · ' + esc(a.municipio) : '') : 'ainda sem produtor';
+    info.className = 'mr-animal achou';
+    info.innerHTML = partes.join(' · ') + (onde ? '<br>' + onde : '');
+  }
+  campoBrinco.addEventListener('input', function () {
+    campoBrinco.value = campoBrinco.value.toUpperCase();
+    mostrarAnimal();
+  });
+  // leitor de brinco/teclado costuma mandar Enter: não envia o formulário
+  campoBrinco.addEventListener('keydown', function (e) { if (e.key === 'Enter') e.preventDefault(); });
+  mostrarAnimal();
+  {% if not registro_id %}campoBrinco.focus();{% endif %}
+
+  // ---------- salvar: envia na hora ou guarda no celular (sem sinal) ----------
+  var CAMPOS_LEMBRAR = {{ campos_carregar|tojson }};
+  var emEdicao = form.dataset.edicao === '1';
+  var botao = document.getElementById('enviar');
+  var rotuloBotao = botao.textContent;
+  var hoje = parseInt(document.querySelector('.mr').dataset.hoje, 10) || 0;
+
+  function hojeLocalISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
+  function marcarOpcao(nome, valor) {
+    var g = form.querySelector('.mr-opts[data-grupo="' + nome + '"]');
+    if (!g) return;
+    g.querySelector('input[type=hidden]').value = valor || '';
+    g.querySelectorAll('.mr-opt').forEach(function (b) {
+      var sel = !!valor && b.dataset.valor === valor;
+      b.classList.toggle('sel', sel); b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+    });
+  }
+  function preencher(dados) {
+    Object.keys(dados || {}).forEach(function (nome) {
+      if (nome === 'brinco' || !dados[nome]) return;
+      if (form.querySelector('.mr-opts[data-grupo="' + nome + '"]')) marcarOpcao(nome, dados[nome]);
+      else if (form.elements[nome]) form.elements[nome].value = dados[nome];
+    });
+  }
+  function limparParaProximo() {
+    ['brinco', 'categoria', 'del_dias', 'dg1_obs', 'dg2_obs', 'embriao_obs', 'embriao_codigo'].forEach(function (n) { if (form.elements[n]) form.elements[n].value = ''; });
+    ['aptidao', 'dg1_resultado', 'dg2_resultado', 'sexagem', 'corpo_luteo', 'ecc', 'embriao_grau', 'embriao_conservacao'].forEach(function (n) { marcarOpcao(n, ''); });
+    ajustarDg2(); mostrarAnimal(); irParaAba('aba-receptora'); campoBrinco.focus();
+  }
+  function contarHoje(delta) {
+    hoje += delta;
+    var ct = document.getElementById('contador-hoje'); if (ct) ct.textContent = 'Registrados hoje: ' + hoje;
+    var chip = document.getElementById('chip-hoje'); if (chip) chip.textContent = hoje + ' hoje';
+  }
+
+  try {
+    var msgGuardada = sessionStorage.getItem('manejo-msg');
+    if (msgGuardada) { sessionStorage.removeItem('manejo-msg'); ManejoFila.aviso(msgGuardada, 'ok'); }
+  } catch (e) {}
+
+  if (!emEdicao) {
+    // abre com a data de HOJE (do celular) e com o que se repete do animal anterior
+    form.elements['data_procedimento'].value = hojeLocalISO();
+    var lembrado = window.ManejoFila ? window.ManejoFila.lembrado() : {};
+    if (lembrado.data_procedimento && lembrado.data_procedimento !== hojeLocalISO()) delete lembrado.data_procedimento;
+    preencher(lembrado);
+    recalcular();
+  }
+
+  form.addEventListener('submit', function (ev) {
+    if (emEdicao || !window.ManejoFila || !window.fetch) return;   // edição e navegador antigo: envio normal
+    ev.preventDefault();
+    var fd = new FormData(form), registro = {};
+    fd.forEach(function (v, k) { registro[k] = v; });
+    var falta = !registro.brinco.trim() ? 'Informe o brinco da matriz.'
+              : !registro.tipo_manejo ? 'Escolha IATF ou TETF.'
+              : !registro.data_procedimento ? 'Informe a data do procedimento.' : '';
+    if (!falta && MODO === 'produtor' && !achar(registro.brinco)) falta = 'Esse brinco não está entre os seus animais. Confira o número.';
+    if (falta) { ManejoFila.aviso(falta, 'erro'); irParaAba('aba-receptora'); return; }
+
+    botao.disabled = true; botao.textContent = 'Salvando...';
+    ManejoFila.salvar(registro).then(function (r) {
+      var brinco = registro.brinco.toUpperCase();
+      if (r.status === 'duplicado') {
+        ManejoFila.aviso('A matriz ' + brinco + ' já tem ' + registro.tipo_manejo + ' registrado nessa data. Nada foi gravado de novo.', 'aviso');
+      } else if (r.status === 'invalido' || r.status === 'nao_encontrado') {
+        ManejoFila.aviso(r.mensagem || 'Registro incompleto.', 'erro'); return;
+      } else {
+        contarHoje(1);
+        ManejoFila.lembrar(registro, CAMPOS_LEMBRAR);
+        if (r.destino === 'celular') ManejoFila.aviso('📴 Sem sinal: ' + brinco + ' guardada no celular. Será enviada sozinha quando a internet voltar.', 'aviso');
+        else if (MODO === 'produtor') {
+          // recarrega para o registro aparecer em "Meus registros"
+          try { sessionStorage.setItem('manejo-msg', '✔ Matriz ' + brinco + ' registrada!'); } catch (e) {}
+          location.reload(); return;
+        }
+        else ManejoFila.aviso('✔ Matriz ' + brinco + ' registrada. Próximo animal!', 'ok');
+      }
+      limparParaProximo();
+      ManejoFila.atualizar();
+    }).catch(function () {
+      ManejoFila.aviso('Não foi possível guardar o registro no celular. Nada foi salvo — tente de novo.', 'erro');
+    }).then(function () { botao.disabled = false; botao.textContent = rotuloBotao; });
+  });
+
+  // ---------- apagar um registro (produtor): formulário próprio, fora da ficha ----------
+  document.querySelectorAll('[data-excluir]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (!confirm('Apagar o registro do brinco ' + b.dataset.brinco + '?')) return;
+      var f = document.createElement('form'); f.method = 'post'; f.action = b.dataset.excluir;
+      document.body.appendChild(f); f.submit();
+    });
+  });
+
+  // ---------- evita envio duplo (envio normal) ----------
+  form.addEventListener('submit', function (ev) {
+    if (ev.defaultPrevented) return;
+    botao.disabled = true; botao.textContent = 'Salvando...';
+  });
+})();
+</script>

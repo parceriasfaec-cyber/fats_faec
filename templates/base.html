@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#2b2015">
-<link rel="manifest" href="{{ url_for('manifest_pwa') }}">
+{% block manifest %}<link rel="manifest" href="{{ url_for('manifest_pwa') }}">{% endblock %}
 <link rel="icon" type="image/png" href="{{ url_for('static', filename='icone-192.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='icone-192.png') }}">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -360,6 +360,7 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
 <div class="app-shell">
+{% block sidebar %}
   <aside class="sidebar">
     <div class="marca">
       <svg width="28" height="28" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -403,6 +404,7 @@
     </nav>
     <footer>FAEC / SENAR-CE</footer>
   </aside>
+{% endblock %}
   <div class="conteudo">
     <main>
       {% if qtd_pendentes_offline and request.endpoint != 'fila' %}
@@ -420,9 +422,11 @@
       {% endwith %}
       {% block content %}{% endblock %}
     </main>
+{% block rodape %}
     <footer style="text-align:center; padding:0 10px 30px; color:#8a7c60; font-size:0.75rem;">
       Sistema FATS — versão com foto do produtor, máscaras e ficha (28/08/2026)
     </footer>
+{% endblock %}
   </div>
 </div>
 </body>

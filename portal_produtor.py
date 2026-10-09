@@ -35,15 +35,15 @@ from datetime import timedelta
 from flask import abort, flash, jsonify, redirect, render_template, request, url_for
 
 from manejo_reprodutivo import (
-    achar_animal, datas_previstas, gravar_registro, hoje, ler_formulario,
-    situacao, validar,
+    CAMPOS, achar_animal, contexto_formulario, datas_previstas, gravar_registro,
+    hoje, ler_formulario, situacao, validar, valores_para_form,
 )
 
 MODO_PRODUTOR = os.environ.get("MODO_PRODUTOR", "").strip().lower() in ("1", "true", "sim", "yes")
 
-# O produtor preenche só isto; o resto do registro fica em branco
-CAMPOS_PRODUTOR = ["brinco", "tipo_manejo", "data_procedimento", "touro_nome"]
 MAX_REGISTROS_NA_TELA = 40
+# O produtor usa a ficha completa (as 3 abas): preenche tudo o que a equipe preenche.
+CAMPOS_DO_PRODUTOR = list(CAMPOS)
 
 
 def _novo_token() -> str:
@@ -79,13 +79,28 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
             (token,),
         ).fetchone()
 
+    # =========================== lado do produtor ===========================
     def _animais_do_produtor(conn, pid):
         return [dict(r) for r in conn.execute(
-            "SELECT id, brinco_faec, brinco_fazenda FROM animais WHERE produtor_id = ? ORDER BY brinco_faec",
+            "SELECT id, brinco_faec, brinco_fazenda, peso FROM animais WHERE produtor_id = ? ORDER BY brinco_faec",
             (pid,),
         ).fetchall()]
 
-    # =========================== lado do produtor ===========================
+    def _animais_js(animais):
+        """Só os animais DELE seguem para o celular (para conferir mesmo sem sinal)."""
+        return [
+            {"id": a["id"], "faec": a["brinco_faec"] or "", "fazenda": a["brinco_fazenda"] or "",
+             "peso": a["peso"] or "", "produtor": "", "municipio": ""}
+            for a in animais
+        ]
+
+    def _tela(produtor, token, reg, animais, registros=None, registro_id=None):
+        return render_template(
+            "produtor_portal.html", token=token, produtor=produtor, reg=reg,
+            registro_id=registro_id, registros=registros or [], animais=_animais_js(animais),
+            total_animais=len(animais), modo="produtor", **contexto_formulario(),
+        )
+
     def produtor_home(token):
         conn = _conectar()
         if conn is None:
@@ -115,15 +130,53 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
             r["prev"] = datas_previstas(r["data_procedimento"], r["tipo_manejo"])
             r["pode_excluir"] = not r.get("dg1_resultado") and not r.get("dg2_resultado")
             registros.append(r)
-        # só os brincos DELE seguem para o celular (para conferir mesmo sem sinal)
-        brincos = [
-            {"faec": a["brinco_faec"] or "", "fazenda": a["brinco_fazenda"] or ""}
-            for a in animais
-        ]
-        return render_template(
-            "produtor_portal.html", token=token, produtor=prod, registros=registros,
-            brincos=brincos, total_animais=len(animais),
-        )
+        reg = {c: None for c in CAMPOS}
+        return _tela(prod, token, reg, animais, registros=registros)
+
+    def produtor_editar(token, rid):
+        """Abre um registro dele (ex.: para lançar o DG1/DG2 dias depois)."""
+        conn = _conectar()
+        if conn is None:
+            return "Sem conexão com a internet. Tente de novo quando o sinal voltar.", 503
+        try:
+            prod = _produtor(conn, token)
+            if not prod:
+                abort(404)
+            animais = _animais_do_produtor(conn, prod["id"])
+            atual = conn.execute(
+                "SELECT m.* FROM manejo_reprodutivo m JOIN animais a ON a.id = m.animal_id "
+                "WHERE m.id = ? AND a.produtor_id = ?",
+                (rid, prod["id"]),
+            ).fetchone()
+            if atual is None:
+                abort(404)
+
+            if request.method == "GET":
+                return _tela(prod, token, valores_para_form(dict(atual)), animais, registro_id=rid)
+
+            dados = ler_formulario(request.form)
+            erro_form = validar(dados)
+            animal = achar_animal(dados["brinco"], animais) if not erro_form else None
+            if not erro_form and not animal:
+                erro_form = f"O brinco {dados['brinco']} não está entre os seus animais."
+            if erro_form:
+                flash(erro_form, "error")
+                return _tela(prod, token, valores_para_form(dados), animais, registro_id=rid)
+
+            dados["brinco"] = (animal.get("brinco_faec") or dados["brinco"]).strip().upper()
+            sets = ", ".join(f"{c} = ?" for c in ["animal_id"] + CAMPOS_DO_PRODUTOR)
+            conn.execute(
+                f"UPDATE manejo_reprodutivo SET {sets}, atualizado_em = now() WHERE id = ?",
+                [animal["id"]] + [dados[c] for c in CAMPOS_DO_PRODUTOR] + [rid],
+            )
+            conn.commit()
+        except Exception as erro:
+            if erro_de_conexao(erro):
+                return "Sem conexão com a internet — as alterações não foram salvas.", 503
+            raise
+        finally:
+            conn.close()
+        return redirect(url_for("produtor_home", token=token))
 
     def produtor_api_salvar(token):
         corpo = request.get_json(silent=True) or {}
@@ -141,7 +194,7 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
             resultados = []
             for item in itens:
                 bruto = item if isinstance(item, dict) else {}
-                dados = ler_formulario({k: bruto.get(k) for k in CAMPOS_PRODUTOR})
+                dados = ler_formulario({k: bruto.get(k) for k in CAMPOS_DO_PRODUTOR})
                 erro_item = validar(dados)
                 if not erro_item and dados["data_procedimento"] > hoje() + timedelta(days=1):
                     erro_item = "A data do procedimento não pode ser no futuro."
@@ -202,6 +255,7 @@ def registrar_portal_produtor(app, get_connection, erro_de_conexao):
         return app.response_class(json.dumps(manifesto), mimetype="application/manifest+json")
 
     app.add_url_rule("/p/<token>", "produtor_home", produtor_home, methods=["GET"], strict_slashes=False)
+    app.add_url_rule("/p/<token>/registro/<int:rid>", "produtor_editar", produtor_editar, methods=["GET", "POST"])
     app.add_url_rule("/p/<token>/api/salvar", "produtor_api_salvar", produtor_api_salvar, methods=["POST"])
     app.add_url_rule("/p/<token>/excluir/<int:rid>", "produtor_excluir", produtor_excluir, methods=["POST"])
     app.add_url_rule("/p/<token>/manifest.webmanifest", "produtor_manifest", produtor_manifest, methods=["GET"])

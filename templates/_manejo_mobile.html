@@ -20,7 +20,7 @@
   }
 </style>
 <div class="mr-appbar">
-  <a href="{{ url_for('inicio') }}" class="voltar">‹ Início</a>
+  {% if sem_voltar %}<span style="width:12px;"></span>{% else %}<a href="{% if voltar_url %}{{ voltar_url }}{% else %}{{ url_for('inicio') }}{% endif %}" class="voltar">‹ {{ voltar_texto|default('Início') }}</a>{% endif %}
   <span class="titulo">{{ titulo }}</span>
   <span class="chip" id="chip-hoje">{{ contador }}</span>
 </div>

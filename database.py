@@ -273,6 +273,9 @@ CREATE INDEX IF NOT EXISTS idx_manejo_data ON "FIV".manejo_reprodutivo(data_proc
 -- Manejo feito pelo proprio produtor: quem registrou ("produtor") e o codigo
 -- secreto do link de cada produtor (/p/<codigo>).
 ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS origem TEXT;
+ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS categoria TEXT;
+ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS del_dias INTEGER;
+ALTER TABLE "FIV".manejo_reprodutivo ADD COLUMN IF NOT EXISTS aptidao TEXT;
 ALTER TABLE "FIV".produtores ADD COLUMN IF NOT EXISTS token_acesso TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_produtores_token ON "FIV".produtores(token_acesso);
 """
